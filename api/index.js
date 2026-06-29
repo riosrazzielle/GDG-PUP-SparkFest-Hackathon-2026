@@ -31,13 +31,17 @@ app.use((req, res, next) => {
 });
 
 let db;
-const client = new MongoClient(MONGODB_URI);
+let client;
 
 async function connectDB() {
   if (db) return db; // reuse connection if already connected
   
   if (!MONGODB_URI) {
     throw new Error("MONGODB_URI is not configured in Vercel Environment Variables");
+  }
+
+  if (!client) {
+    client = new MongoClient(MONGODB_URI);
   }
 
   try {
