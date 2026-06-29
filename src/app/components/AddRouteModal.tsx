@@ -258,6 +258,11 @@ export function AddRouteModal({ onClose, onSave, editRoute }: Props) {
   const [placesReady, setPlacesReady] = useState(false);
   const [mapPicker, setMapPicker] = useState<'start' | 'dest' | null>(null);
 
+  // Alternative route selection state
+  const [calculatedRoutes, setCalculatedRoutes] = useState<any[]>([]);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0);
+  const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
+
   /* Load Google Maps + Places library ONCE so both autocomplete inputs work */
   useEffect(() => {
     setOptions({ apiKey: GOOGLE_MAPS_API_KEY, version: 'weekly' });
@@ -274,8 +279,10 @@ export function AddRouteModal({ onClose, onSave, editRoute }: Props) {
 
   const canSave = hasValidStart && hasValidDest;
 
-  const toggleOption = (key: string) =>
+  const toggleOption = (key: string) => {
     setAvoidOptions(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+    setCalculatedRoutes([]); // Reset alternatives on option change
+  };
 
   /* GPS current location */
   useEffect(() => {
@@ -287,10 +294,78 @@ export function AddRouteModal({ onClose, onSave, editRoute }: Props) {
         setStartAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
         setStartPlace(null);
         setStartLatLng(null);
+        setCalculatedRoutes([]);
       },
       () => setError('Could not get current location.')
     );
   }, [useCurrentLocation]);
+
+  const fetchRoutes = async (provideAlternatives = false) => {
+    setOptions({ apiKey: GOOGLE_MAPS_API_KEY, version: 'weekly' });
+    await importLibrary('routes');
+
+    const directionsService = new google.maps.DirectionsService();
+
+    // Resolve origin
+    const origin =
+      useCurrentLocation && currentLatLng
+        ? new google.maps.LatLng(currentLatLng.lat, currentLatLng.lng)
+        : startLatLng
+          ? new google.maps.LatLng(startLatLng.lat, startLatLng.lng)
+          : startPlace?.geometry?.location ?? (isEditMode ? startAddress : null);
+
+    if (!origin) throw new Error('Please re-select the start address from the dropdown or pin it on the map.');
+
+    // Resolve destination
+    const destination =
+      destLatLng
+        ? new google.maps.LatLng(destLatLng.lat, destLatLng.lng)
+        : destPlace?.geometry?.location ?? (isEditMode ? destAddress : null);
+
+    if (!destination) throw new Error('Please re-select the destination from the dropdown or pin it on the map.');
+
+    const gmTravelMode = {
+      DRIVING:   google.maps.TravelMode.DRIVING,
+      WALKING:   google.maps.TravelMode.WALKING,
+      BICYCLING: google.maps.TravelMode.BICYCLING,
+      TRANSIT:   google.maps.TravelMode.TRANSIT,
+    }[travelMode] ?? google.maps.TravelMode.DRIVING;
+
+    const avoidTolls    = avoidOptions.includes('avoid-tolls');
+    const avoidHighways = avoidOptions.includes('avoid-highways');
+    const avoidFerries  = avoidOptions.includes('avoid-ferries');
+    const avoidIndoor   = avoidOptions.includes('avoid-indoor');
+
+    return await directionsService.route({
+      origin,
+      destination,
+      travelMode: gmTravelMode,
+      avoidTolls,
+      avoidHighways,
+      avoidFerries,
+      avoidIndoor,
+      provideRouteAlternatives: provideAlternatives,
+    });
+  };
+
+  const handleFindAlternatives = async () => {
+    if (!canSave) return;
+    setError('');
+    setCalculatingAlternatives(true);
+    try {
+      const result = await fetchRoutes(true);
+      if (!result.routes || result.routes.length === 0) {
+        throw new Error('No routes found.');
+      }
+      setCalculatedRoutes(result.routes);
+      setSelectedRouteIndex(0);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to calculate alternative routes.';
+      setError(msg);
+    } finally {
+      setCalculatingAlternatives(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!canSave) { setError('Please fill in both a start and destination.'); return; }
@@ -298,59 +373,19 @@ export function AddRouteModal({ onClose, onSave, editRoute }: Props) {
     setSaving(true);
 
     try {
-      setOptions({ apiKey: GOOGLE_MAPS_API_KEY, version: 'weekly' });
-      await importLibrary('routes');
+      let chosenRoute = calculatedRoutes[selectedRouteIndex];
+      
+      // If routes haven't been pre-calculated, fetch the default route now
+      if (!chosenRoute) {
+        const result = await fetchRoutes(false);
+        chosenRoute = result.routes[0];
+      }
 
-      const directionsService = new google.maps.DirectionsService();
-
-      // Resolve origin
-      const origin =
-        useCurrentLocation && currentLatLng
-          ? new google.maps.LatLng(currentLatLng.lat, currentLatLng.lng)
-          : startLatLng
-            ? new google.maps.LatLng(startLatLng.lat, startLatLng.lng)
-            : startPlace?.geometry?.location ?? (isEditMode ? startAddress : null);
-
-      if (!origin) throw new Error('Please re-select the start address from the dropdown or pin it on the map.');
-
-      // Resolve destination
-      const destination =
-        destLatLng
-          ? new google.maps.LatLng(destLatLng.lat, destLatLng.lng)
-          : destPlace?.geometry?.location ?? (isEditMode ? destAddress : null);
-
-      if (!destination) throw new Error('Please re-select the destination from the dropdown or pin it on the map.');
-
-      // Resolve API travel mode from config (e.g. MOTOR → DRIVING)
-      const modeConfig = TRAVEL_MODES.find(m => m.key === travelMode);
-      const apiMode = modeConfig?.mode ?? 'DRIVING';
-      const gmTravelMode = {
-        DRIVING:   google.maps.TravelMode.DRIVING,
-        WALKING:   google.maps.TravelMode.WALKING,
-        BICYCLING: google.maps.TravelMode.BICYCLING,
-        TRANSIT:   google.maps.TravelMode.TRANSIT,
-      }[apiMode] ?? google.maps.TravelMode.DRIVING;
-
-      const avoidTolls    = avoidOptions.includes('avoid-tolls');
-      const avoidHighways = avoidOptions.includes('avoid-highways');
-      const avoidFerries  = avoidOptions.includes('avoid-ferries');
-      const avoidIndoor   = avoidOptions.includes('avoid-indoor');
-
-      const result = await directionsService.route({
-        origin,
-        destination,
-        travelMode: gmTravelMode,
-        avoidTolls,
-        avoidHighways,
-        avoidFerries,
-        avoidIndoor,
-      });
-
-      const leg = result.routes[0]?.legs[0];
+      const leg = chosenRoute?.legs?.[0];
       if (!leg) throw new Error('No route found between these locations.');
 
       // Decode the full road-following polyline
-      const rawPath = result.routes[0].overview_path ?? [];
+      const rawPath = chosenRoute.overview_path ?? [];
       const routePath = rawPath.map((p: google.maps.LatLng) => ({ lat: p.lat(), lng: p.lng() }));
 
       const now = new Date();
@@ -379,7 +414,6 @@ export function AddRouteModal({ onClose, onSave, editRoute }: Props) {
         routePath,
       };
 
-
       onSave(route);
       setSaved(true);
       setTimeout(onClose, 1800);
@@ -392,6 +426,7 @@ export function AddRouteModal({ onClose, onSave, editRoute }: Props) {
       setSaving(false);
     }
   };
+
 
   return (
     <motion.div
@@ -557,6 +592,59 @@ export function AddRouteModal({ onClose, onSave, editRoute }: Props) {
                   })}
                 </div>
               </div>
+
+              {/* Find alternative routes button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleFindAlternatives}
+                  disabled={calculatingAlternatives || !canSave}
+                  className="w-full py-2.5 rounded-xl border border-blue-200 text-blue-600 bg-blue-50/50 hover:bg-blue-50 text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {calculatingAlternatives ? (
+                    <><Loader2 size={14} className="animate-spin" /> Fetching Alternatives…</>
+                  ) : (
+                    '🔍 Find Alternative Routes'
+                  )}
+                </button>
+              </div>
+
+              {/* Alternatives List */}
+              {calculatedRoutes.length > 0 && (
+                <div className="space-y-2 border border-gray-100 bg-gray-50/50 p-3 rounded-2xl">
+                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Select Route Path:</p>
+                  <div className="space-y-1.5">
+                    {calculatedRoutes.map((r, idx) => {
+                      const leg = r.legs?.[0];
+                      const selected = idx === selectedRouteIndex;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setSelectedRouteIndex(idx)}
+                          className="w-full flex items-center justify-between p-3 rounded-xl border text-[13px] text-left transition-all cursor-pointer"
+                          style={selected
+                            ? { background: 'white', borderColor: '#3b82f6', boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.08)' }
+                            : { background: 'white', borderColor: '#e5e7eb' }
+                          }
+                        >
+                          <div className="flex flex-col">
+                            <span className={`font-semibold ${selected ? 'text-blue-600' : 'text-gray-700'}`}>
+                              Option {idx + 1} {idx === 0 ? '(Recommended)' : ''}
+                            </span>
+                            <span className="text-[11px] text-gray-400">Via {r.summary || 'Main road'}</span>
+                          </div>
+                          <div className="text-right flex flex-col">
+                            <span className="font-bold text-gray-900">{leg?.duration?.text || '—'}</span>
+                            <span className="text-[11px] text-gray-400">{leg?.distance?.text || '—'}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
 
 
               {/* Error */}

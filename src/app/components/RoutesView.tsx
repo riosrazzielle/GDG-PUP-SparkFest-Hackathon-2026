@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin as MapPinIcon, Plus, AlertCircle, ArrowDown, Trash2, Edit2, Map, Clock, Ruler } from 'lucide-react';
+import { MapPin as MapPinIcon, Plus, AlertCircle, ArrowDown, Trash2, Edit2, Map, Clock, Ruler, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { SavedRoute, MapPin } from '../types';
 import { countNearbyPins } from '../hooks/useRoutes';
@@ -11,6 +11,19 @@ interface Props {
   onDeleteRoute: (id: string) => void;
   onEditRoute: (route: SavedRoute) => void;
   onViewOnMap: (route: SavedRoute) => void;
+}
+
+/* ── Haversine helper to find exact nearby pins ── */
+function getDistance(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const sin2 =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) *
+      Math.cos((b.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(sin2));
 }
 
 function RouteCard({
@@ -26,8 +39,14 @@ function RouteCard({
   onEdit: () => void;
   onViewOnMap: () => void;
 }) {
-  const nearbyCount = countNearbyPins(route.routePath ?? [], pins);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hazardsListOpen, setHazardsListOpen] = useState(false);
+
+  // Find actual nearby pins
+  const nearbyPins = pins.filter(pin =>
+    (route.routePath ?? []).some(point => getDistance(pin, point) <= 500)
+  );
+  const nearbyCount = nearbyPins.length;
 
   const MODE_LABELS: Record<string, string> = {
     DRIVING: '🚗 Car',
@@ -120,12 +139,16 @@ function RouteCard({
             </AnimatePresence>
           </div>
 
-          {/* Hazard badge */}
+          {/* Hazard badge (clickable dropdown toggle) */}
           {nearbyCount > 0 ? (
-            <div className="inline-flex items-center gap-1 border border-red-300 bg-red-50 rounded-full px-2.5 py-1 text-[10px] font-bold text-red-700 whitespace-nowrap">
+            <button
+              onClick={() => setHazardsListOpen(v => !v)}
+              className="inline-flex items-center gap-1 border border-red-300 bg-red-50 hover:bg-red-100 rounded-full px-2.5 py-1 text-[10px] font-bold text-red-700 whitespace-nowrap cursor-pointer transition-colors"
+            >
               <AlertCircle size={10} />
               {nearbyCount} Hazard{nearbyCount > 1 ? 's' : ''}
-            </div>
+              {hazardsListOpen ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+            </button>
           ) : (
             <div className="inline-flex items-center gap-1 border border-green-300 bg-green-50 rounded-full px-2.5 py-1 text-[10px] font-bold text-green-700 whitespace-nowrap">
               <AlertCircle size={10} />
@@ -143,8 +166,34 @@ function RouteCard({
           </button>
         </div>
       </div>
+
+      {/* Expanded Hazards Preview List */}
+      <AnimatePresence>
+        {hazardsListOpen && nearbyPins.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="mt-3 pt-3 border-t border-gray-100 space-y-1.5 overflow-hidden"
+          >
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Hazards on Route:</p>
+            <div className="space-y-1">
+              {nearbyPins.map(pin => (
+                <div key={pin.id} className="flex items-start gap-1.5 text-[11px] text-gray-700">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-bold text-gray-900">{pin.title}</span>
+                    <span className="text-[10px] text-gray-400 ml-1.5">({pin.address || 'nearby'})</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
+
 
 }
 

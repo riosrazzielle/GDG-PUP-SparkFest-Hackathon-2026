@@ -88,6 +88,7 @@ export default function App() {
                 setActivePanel(null);
                 setDetailPin(pin);
               }}
+              onClearActiveRoute={() => setActiveRoute(null)}
             />
           </div>
 

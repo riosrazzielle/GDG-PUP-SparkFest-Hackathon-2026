@@ -30,6 +30,25 @@ interface Props {
   pins: MapPin[];
   activeRoute?: SavedRoute | null;
   onOpenDetail: (pin: MapPin) => void;
+  onClearActiveRoute?: () => void;
+}
+
+/* ── Haversine helper for marker highlighting ── */
+function distMetres(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const sin2 =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) *
+      Math.cos((b.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(sin2));
+}
+
+function isNearRoute(pin: { lat: number; lng: number }, path: { lat: number; lng: number }[]): boolean {
+  if (!path || path.length === 0) return false;
+  return path.some(pt => distMetres(pin, pt) <= 500);
 }
 
 /* ── Error Boundary ── */
@@ -113,7 +132,7 @@ function FilterDropdown({ filter, onChange }: { filter: HazardFilter; onChange: 
 }
 
 /* ── Inner map component (rendered inside error boundary) ── */
-function MapInner({ pins, activeRoute, onOpenDetail }: Props) {
+function MapInner({ pins, activeRoute, onOpenDetail, onClearActiveRoute }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
@@ -174,12 +193,19 @@ function MapInner({ pins, activeRoute, onOpenDetail }: Props) {
     visible.forEach(pin => {
       const { bg } = HAZARD_COLORS[pin.hazardLevel];
       const path = reportSvgPaths[pin.type] ?? reportSvgPaths['other'];
+      
+      // Determine if pin is near the active route path
+      const near = activeRoute ? isNearRoute(pin, activeRoute.routePath) : false;
+      const strokeColor = near ? '#ff0000' : 'white';
+      const strokeWidth = near ? '3.5' : '2';
+      const glowCircle = near ? `<circle cx="16" cy="14" r="11" fill="none" stroke="#ff0000" stroke-width="2" stroke-dasharray="2,2"/>` : '';
 
       // Build SVG data-URL icon
       const svgStr = [
         `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44">`,
+        glowCircle,
         `<path d="M16 2C9.373 2 4 7.373 4 14C4 23 16 40 16 40C16 40 28 23 28 14C28 7.373 22.627 2 16 2Z"`,
-        ` fill="${bg}" stroke="white" stroke-width="2"/>`,
+        ` fill="${bg}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>`,
         `<circle cx="16" cy="14" r="7" fill="white" fill-opacity="0.25"/>`,
         `<svg x="10" y="8" width="12" height="12" viewBox="0 0 24 24" fill="none"`,
         ` stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">`,
@@ -193,7 +219,13 @@ function MapInner({ pins, activeRoute, onOpenDetail }: Props) {
         anchor: new google.maps.Point(16, 44),
       };
 
-      const marker = new google.maps.Marker({ map, position: { lat: pin.lat, lng: pin.lng }, icon, title: pin.title });
+      const marker = new google.maps.Marker({ 
+        map, 
+        position: { lat: pin.lat, lng: pin.lng }, 
+        icon, 
+        title: pin.title,
+        zIndex: near ? 1000 : 100
+      });
 
       marker.addListener('click', () => {
         const div = document.createElement('div');
@@ -227,7 +259,7 @@ function MapInner({ pins, activeRoute, onOpenDetail }: Props) {
       markersRef.current.forEach(m => m.setMap(null));
       markersRef.current = [];
     };
-  }, [loaded, pins, filter, onOpenDetail]);
+  }, [loaded, pins, filter, onOpenDetail, activeRoute]);
 
   /* Draw / clear the active route polyline */
   useEffect(() => {
@@ -278,10 +310,19 @@ function MapInner({ pins, activeRoute, onOpenDetail }: Props) {
         </div>
       )}
 
-      <div className="absolute top-3 left-0 right-0 z-[1000] flex justify-center pointer-events-none">
+      <div className="absolute top-3 left-0 right-0 z-[1000] flex flex-col items-center gap-2 pointer-events-none">
         <div className="pointer-events-auto">
           <FilterDropdown filter={filter} onChange={setFilter} />
         </div>
+        {activeRoute && onClearActiveRoute && (
+          <button
+            onClick={onClearActiveRoute}
+            className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-full text-[11px] font-bold shadow-lg transition-all cursor-pointer"
+          >
+            <X size={12} />
+            Clear Route: {activeRoute.name}
+          </button>
+        )}
       </div>
 
       <button onClick={handleLocate}
