@@ -21,11 +21,14 @@ export interface MapPin {
 
 export interface SavedRoute {
   id: string;
+  name: string;
   from: string;
   to: string;
   distance: string;
+  duration: string;
   lastEdited: string;
   nearbyReports: number;
+  routePath: { lat: number; lng: number }[];
 }
 
 export interface AppNotification {

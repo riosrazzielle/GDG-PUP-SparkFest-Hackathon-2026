@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { MapView } from './components/MapView';
-
 import { BottomNav } from './components/BottomNav';
 import { NotificationsPanel } from './components/NotificationsPanel';
 import { RoutesView } from './components/RoutesView';
@@ -10,8 +9,9 @@ import { ProfileView } from './components/ProfileView';
 import { AddReportModal } from './components/AddReportModal';
 import { ReportDetailPanel } from './components/ReportDetailPanel';
 import { AddRouteModal } from './components/AddRouteModal';
-import { mockPins, mockRoutes, mockNotifications, mockUserReports } from './mockData';
-import type { AppPanel, MapPin } from './types';
+import { mockNotifications } from './mockData';
+import { useRoutes } from './hooks/useRoutes';
+import type { AppPanel, MapPin, UserReport } from './types';
 
 export default function App() {
   const [activePanel, setActivePanel] = useState<AppPanel>(null);
@@ -20,11 +20,54 @@ export default function App() {
   const [detailPin, setDetailPin] = useState<MapPin | null>(null);
   const [notifications, setNotifications] = useState(mockNotifications);
   const [language, setLanguage] = useState<'en' | 'fil'>('en');
+  const { routes, addRoute, deleteRoute } = useRoutes();
+  
+  const [pins, setPins] = useState<MapPin[]>([]);
+  const [userReports, setUserReports] = useState<UserReport[]>([]);
+
+  const fetchPins = () => {
+    fetch('/api/pins')
+      .then(res => res.json())
+      .then(data => setPins(data))
+      .catch(err => console.error('Error fetching pins:', err));
+  };
+
+  const fetchReports = () => {
+    fetch('/api/reports')
+      .then(res => res.json())
+      .then(data => setUserReports(data))
+      .catch(err => console.error('Error fetching reports:', err));
+  };
+
+  useEffect(() => {
+    fetchPins();
+    fetchReports();
+  }, []);
 
   const unreadCount = notifications.filter(n => n.isNew).length;
 
   const handlePanelSelect = (panel: AppPanel) => {
     setActivePanel(panel);
+  };
+
+  const handleAddReportSubmit = (reportData: { type: string; address: string; description: string; lat: number; lng: number }) => {
+    fetch('/api/pins', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(reportData),
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to create report');
+        return res.json();
+      })
+      .then(() => {
+        fetchPins();
+        fetchReports();
+        setShowAddReport(false);
+      })
+      .catch(err => console.error(err));
   };
 
   return (
@@ -37,7 +80,7 @@ export default function App() {
           {/* Map — always the base layer */}
           <div className="absolute inset-0">
             <MapView
-              pins={mockPins}
+              pins={pins}
               onOpenDetail={pin => {
                 setActivePanel(null);
                 setDetailPin(pin);
@@ -56,16 +99,17 @@ export default function App() {
           )}
           {activePanel === 'routes' && (
             <RoutesView
-              routes={mockRoutes}
+              routes={routes}
               onAddRoute={() => {
                 setActivePanel(null);
                 setShowAddRoute(true);
               }}
+              onDeleteRoute={deleteRoute}
             />
           )}
           {activePanel === 'reports' && (
             <ReportsView
-              reports={mockUserReports}
+              reports={userReports}
               onAddReport={() => {
                 setActivePanel(null);
                 setShowAddReport(true);
@@ -106,6 +150,7 @@ export default function App() {
             <AddRouteModal
               key="add-route"
               onClose={() => setShowAddRoute(false)}
+              onSave={route => { addRoute(route); setShowAddRoute(false); }}
             />
           )}
         </AnimatePresence>
@@ -114,7 +159,7 @@ export default function App() {
             <AddReportModal
               key="add-report"
               onClose={() => setShowAddReport(false)}
-              onSubmit={() => setShowAddReport(false)}
+              onSubmit={handleAddReportSubmit}
             />
           )}
         </AnimatePresence>

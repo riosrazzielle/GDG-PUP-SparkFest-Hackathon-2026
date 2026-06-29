@@ -126,7 +126,13 @@ export function ReportDetailPanel({ pin, onClose }: Props) {
           {/* Interaction row */}
           <div className="flex items-center gap-5">
             <button
-              onClick={() => { setUpvoted(v => !v); setUpvotes(v => upvoted ? v - 1 : v + 1); }}
+              onClick={() => {
+                if (!upvoted) {
+                  setUpvoted(true);
+                  setUpvotes(v => v + 1);
+                  fetch(`/api/pins/${pin.id}/upvote`, { method: 'POST' }).catch(err => console.error(err));
+                }
+              }}
               className="flex items-center gap-2 text-[14px] font-semibold"
               style={{ color: upvoted ? '#16a34a' : '#6b7280' }}
             >

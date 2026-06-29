@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
   onClose: () => void;
-  onSubmit: () => void;
+  onSubmit: (reportData: { type: string; address: string; description: string; lat: number; lng: number }) => void;
 }
 
 const CATEGORIES = [
@@ -96,7 +96,19 @@ export function AddReportModal({ onClose, onSubmit }: Props) {
 
   const handleSubmit = () => {
     setSubmitted(true);
-    setTimeout(onSubmit, 1800);
+    // Simulate some coordinates in Manila for new reports
+    const lat = 14.5995 + (Math.random() - 0.5) * 0.05;
+    const lng = 120.9842 + (Math.random() - 0.5) * 0.05;
+    
+    setTimeout(() => {
+      onSubmit({
+        type: category,
+        address: address || 'Manila',
+        description,
+        lat,
+        lng
+      });
+    }, 1800);
   };
 
   return (
