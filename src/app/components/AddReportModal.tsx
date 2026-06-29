@@ -105,7 +105,7 @@ export function AddReportModal({ onClose, onSubmit }: Props) {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-      className="fixed inset-0 bg-white z-50 flex flex-col"
+      className="absolute inset-0 bg-white z-50 flex flex-col"
     >
       <AnimatePresence mode="wait">
         {submitted ? (

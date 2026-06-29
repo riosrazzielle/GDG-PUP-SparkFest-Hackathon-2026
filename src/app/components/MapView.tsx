@@ -37,11 +37,13 @@ interface Props {
 /* ── Single component: pin + tooltip as one unit ── */
 function PinWithTooltip({
   pin,
+  mapWidth,
   selected,
   onClick,
   onViewMore,
 }: {
   pin: MapPin;
+  mapWidth: number;
   selected: boolean;
   onClick: () => void;
   onViewMore: () => void;
@@ -50,13 +52,13 @@ function PinWithTooltip({
   const Icon = reportIcons[pin.type] ?? AlertTriangle;
 
   // Nudge tooltip left/right so it doesn't overflow the map edges.
-  // Tooltip is 230px wide, centered on the pin. Assume map ≈ 430px wide.
-  // pin.x is 0–100. Center pixel ≈ pin.x / 100 * 430.
-  const centerPx = (pin.x / 100) * 430;
+  // Tooltip is 230px wide, centered on the pin.
+  // pin.x is 0–100. Center pixel ≈ pin.x / 100 * mapWidth.
+  const centerPx = (pin.x / 100) * mapWidth;
   const half = 115; // 230 / 2
   let nudge = 0;
   if (centerPx - half < 8) nudge = 8 - (centerPx - half);       // too close to left
-  if (centerPx + half > 422) nudge = 422 - (centerPx + half);   // too close to right
+  if (centerPx + half > mapWidth - 8) nudge = (mapWidth - 8) - (centerPx + half);   // too close to right
 
   return (
     // Wrapper positioned so its BOTTOM EDGE sits at (pin.x%, pin.y%) on the map.
@@ -243,11 +245,24 @@ function FilterDropdown({ filter, onChange }: { filter: HazardFilter; onChange: 
 export function MapView({ pins, onOpenDetail }: Props) {
   const [filter, setFilter] = useState<HazardFilter>('all');
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mapWidth, setMapWidth] = useState(430);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        setMapWidth(entry.contentRect.width || 430);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const visible = filter === 'all' ? pins : pins.filter(p => p.hazardLevel === filter);
 
   return (
-    <div className="relative w-full h-full bg-[#f0ebe0]">
+    <div ref={containerRef} className="relative w-full h-full bg-[#f0ebe0]">
       {/* Map */}
       <div className="absolute inset-0 overflow-hidden">
         <MapBackground />
@@ -266,6 +281,7 @@ export function MapView({ pins, onOpenDetail }: Props) {
         <PinWithTooltip
           key={pin.id}
           pin={pin}
+          mapWidth={mapWidth}
           selected={selectedPinId === pin.id}
           onClick={() => setSelectedPinId(id => id === pin.id ? null : pin.id)}
           onViewMore={() => { onOpenDetail(pin); setSelectedPinId(null); }}

@@ -24,28 +24,24 @@ export default function App() {
   const unreadCount = notifications.filter(n => n.isNew).length;
 
   const handlePanelSelect = (panel: AppPanel) => {
-    setActivePanel(prev => prev === panel ? null : panel);
+    setActivePanel(panel);
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-400">
-      {/*
-        Phone shell uses flex-col so the BottomNav is a real flex child
-        sitting BELOW the content area. Panels live inside the content area
-        and can never overlap the nav no matter their z-index.
-      */}
+    <div className="flex items-center justify-center min-h-screen bg-slate-950">
       <div
-        className="flex flex-col bg-white overflow-hidden"
-        style={{ width: '100%', maxWidth: 430, height: '100dvh' }}
+        className="relative flex flex-col bg-white overflow-hidden w-full h-dvh sm:max-w-[768px] sm:h-[min(880px,calc(100vh-120px))] sm:rounded-[32px] sm:border-[6px] sm:border-slate-800 sm:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)] lg:max-w-full lg:h-screen lg:rounded-none lg:border-0 lg:shadow-none"
       >
         {/* ── Content area (map + panels) ── */}
         <div className="flex-1 relative overflow-hidden min-h-0">
-
           {/* Map — always the base layer */}
           <div className="absolute inset-0">
             <MapView
               pins={mockPins}
-              onOpenDetail={pin => { setActivePanel(null); setDetailPin(pin); }}
+              onOpenDetail={pin => {
+                setActivePanel(null);
+                setDetailPin(pin);
+              }}
             />
           </div>
 
@@ -61,19 +57,25 @@ export default function App() {
           {activePanel === 'routes' && (
             <RoutesView
               routes={mockRoutes}
-              onAddRoute={() => { setActivePanel(null); setShowAddRoute(true); }}
+              onAddRoute={() => {
+                setActivePanel(null);
+                setShowAddRoute(true);
+              }}
             />
           )}
           {activePanel === 'reports' && (
             <ReportsView
               reports={mockUserReports}
-              onAddReport={() => { setActivePanel(null); setShowAddReport(true); }}
+              onAddReport={() => {
+                setActivePanel(null);
+                setShowAddReport(true);
+              }}
             />
           )}
           {activePanel === 'profile' && (
             <ProfileView
               language={language}
-              onLanguageToggle={() => setLanguage(l => l === 'en' ? 'fil' : 'en')}
+              onLanguageToggle={() => setLanguage(l => (l === 'en' ? 'fil' : 'en'))}
             />
           )}
         </div>
@@ -84,39 +86,39 @@ export default function App() {
           onSelect={handlePanelSelect}
           unreadCount={unreadCount}
         />
-      </div>
 
-      {/*
-        Full-screen modals are rendered OUTSIDE the phone shell's flex layout
-        and positioned fixed so they can cover everything including the nav.
-        They are placed outside so they don't disrupt the flex-col structure.
-      */}
-      <AnimatePresence>
-        {detailPin && (
-          <ReportDetailPanel
-            key="detail"
-            pin={detailPin}
-            onClose={() => setDetailPin(null)}
-          />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {showAddRoute && (
-          <AddRouteModal
-            key="add-route"
-            onClose={() => setShowAddRoute(false)}
-          />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {showAddReport && (
-          <AddReportModal
-            key="add-report"
-            onClose={() => setShowAddReport(false)}
-            onSubmit={() => setShowAddReport(false)}
-          />
-        )}
-      </AnimatePresence>
+        {/*
+          Full-screen modals are rendered INSIDE the phone shell's relative container
+          and positioned absolute so they can cover everything including the nav,
+          while staying strictly bounded by the container size.
+        */}
+        <AnimatePresence>
+          {detailPin && (
+            <ReportDetailPanel
+              key="detail"
+              pin={detailPin}
+              onClose={() => setDetailPin(null)}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {showAddRoute && (
+            <AddRouteModal
+              key="add-route"
+              onClose={() => setShowAddRoute(false)}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {showAddReport && (
+            <AddReportModal
+              key="add-report"
+              onClose={() => setShowAddReport(false)}
+              onSubmit={() => setShowAddReport(false)}
+            />
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

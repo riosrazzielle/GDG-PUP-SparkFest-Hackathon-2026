@@ -53,14 +53,15 @@ export function ReportsView({ reports, onAddReport }: Props) {
         {reports.map(r => <ReportCard key={r.id} report={r} />)}
       </div>
 
-      <div className="absolute bottom-[86px] right-5">
-        <button
-          onClick={onAddReport}
-          className="w-14 h-14 bg-black text-white rounded-full shadow-xl flex items-center justify-center active:scale-95 transition-transform"
-        >
-          <Plus size={22} />
-        </button>
-      </div>
+      <button
+        onClick={onAddReport}
+        className="group absolute bottom-6 right-5 h-14 w-14 hover:w-auto hover:px-5 bg-black text-white rounded-full shadow-xl flex items-center justify-center transition-all duration-300 ease-in-out active:scale-95 cursor-pointer"
+      >
+        <span className="font-extrabold text-[13px] tracking-wide whitespace-nowrap overflow-hidden max-w-0 opacity-0 group-hover:max-w-[150px] group-hover:opacity-100 group-hover:mr-1.5 transition-all duration-300 ease-in-out">
+          Add New Report
+        </span>
+        <Plus size={20} className="flex-shrink-0" />
+      </button>
     </div>
   );
 }

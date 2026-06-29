@@ -29,7 +29,7 @@ export function ReportDetailPanel({ pin, onClose }: Props) {
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-      className="fixed inset-0 bg-white z-50 flex flex-col overflow-hidden"
+      className="absolute inset-0 bg-white z-50 flex flex-col overflow-hidden"
     >
       {/* Hero image */}
       <div className="relative flex-shrink-0" style={{ height: 220 }}>
