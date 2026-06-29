@@ -26,12 +26,14 @@ const client = new MongoClient(MONGODB_URI);
 
 async function connectDB() {
   try {
+    if (db) return db; // reuse connection if already connected
     await client.connect();
     db = client.db('bantaybayan');
     console.log("Successfully connected to MongoDB");
     
     // Seed initial data if collections are empty
     await seedDatabase();
+    return db;
   } catch (err) {
     console.error("Failed to connect to MongoDB", err);
     process.exit(1);
@@ -113,6 +115,12 @@ async function seedDatabase() {
     console.log("Seeded initial reports data");
   }
 }
+
+// Middleware to ensure database connection in serverless environment
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
 
 /* ==========================================================================
    PINS ENDPOINTS (/api/pins)
@@ -279,9 +287,13 @@ app.post('/api/accounts/profile', async (req, res) => {
   }
 });
 
-// Start server
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Backend server is running on port ${PORT}`);
+// Start server locally if not in Vercel serverless environment
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  connectDB().then(() => {
+    app.listen(PORT, () => {
+      console.log(`Backend server is running on port ${PORT}`);
+    });
   });
-});
+}
+
+export default app;
