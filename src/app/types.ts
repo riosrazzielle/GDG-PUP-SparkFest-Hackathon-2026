@@ -61,6 +61,13 @@ export interface Comment {
   timeAgo: string;
   role?: 'citizen' | 'authority' | 'lgu' | 'admin';
   governmentCategory?: string;
+  parentId?: string;
+  upvotes?: number;
+  downvotes?: number;
+  flags?: number;
+  upvotedBy?: string[];
+  downvotedBy?: string[];
+  flaggedBy?: string[];
 }
 
 export interface AppNotification {
