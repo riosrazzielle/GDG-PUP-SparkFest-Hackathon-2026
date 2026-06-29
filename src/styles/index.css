@@ -1,27 +1,7 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
-@import "leaflet/dist/leaflet.css";
 
-/* Custom clean Leaflet popup overrides */
-.custom-leaflet-popup .leaflet-popup-content-wrapper {
-  background: transparent !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  border-radius: 12px !important;
-}
-.custom-leaflet-popup .leaflet-popup-content {
-  margin: 0 !important;
-  background: transparent !important;
-  width: auto !important;
-}
-.custom-leaflet-popup .leaflet-popup-tip-container {
-  display: block !important;
-}
-.custom-leaflet-popup .leaflet-popup-tip {
-  background: white !important;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.15) !important;
-}
 
 /* Custom Google Maps InfoWindow overrides */
 .gm-style-iw {
