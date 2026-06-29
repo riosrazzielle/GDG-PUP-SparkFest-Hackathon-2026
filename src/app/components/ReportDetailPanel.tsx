@@ -21,8 +21,9 @@ function buildCommentTree(flatComments: Comment[]) {
   return roots;
 }
 
-function CommentNode({ comment, onReply, onAction }: { comment: any, onReply: (id: string, author: string) => void, onAction: (id: string, action: string) => void }) {
+function CommentNode({ comment, currentUser, onReply, onAction, onReport }: { comment: any, currentUser: any, onReply: (id: string, author: string) => void, onAction: (id: string, action: string) => void, onReport: (id: string) => void }) {
   const isOfficial = comment.role && comment.role !== 'citizen';
+  const hasFlagged = comment.flaggedBy?.includes(currentUser?.username);
   return (
     <div className="mt-3 first:mt-0">
       <div
@@ -60,13 +61,23 @@ function CommentNode({ comment, onReply, onAction }: { comment: any, onReply: (i
             >
               <MessageCircle size={12} /> Reply
             </button>
-            <button onClick={() => onAction(comment.id, 'upvote')} className="text-[11px] text-gray-500 hover:text-green-600 flex items-center gap-1">
+            <button 
+              onClick={() => onAction(comment.id, 'upvote')} 
+              className={`text-[11px] flex items-center gap-1 ${comment.upvotedBy?.includes(currentUser?.username) ? 'text-green-600 font-bold' : 'text-gray-500 hover:text-green-600'}`}
+            >
               <ThumbsUp size={12} /> {comment.upvotes || 0}
             </button>
-            <button onClick={() => onAction(comment.id, 'downvote')} className="text-[11px] text-gray-500 hover:text-red-600 flex items-center gap-1">
+            <button 
+              onClick={() => onAction(comment.id, 'downvote')} 
+              className={`text-[11px] flex items-center gap-1 ${comment.downvotedBy?.includes(currentUser?.username) ? 'text-red-600 font-bold' : 'text-gray-500 hover:text-red-600'}`}
+            >
               <ThumbsDown size={12} /> {comment.downvotes || 0}
             </button>
-            <button onClick={() => onAction(comment.id, 'flag')} className="text-[11px] text-gray-500 hover:text-orange-500 ml-auto flex items-center gap-1" title="Flag as inappropriate">
+            <button 
+              onClick={() => hasFlagged ? onAction(comment.id, 'flag') : onReport(comment.id)} 
+              className={`text-[11px] ml-auto flex items-center gap-1 ${hasFlagged ? 'text-orange-500' : 'text-gray-500 hover:text-orange-500'}`} 
+              title={hasFlagged ? "Remove Flag" : "Flag as inappropriate"}
+            >
               <Flag size={12} />
             </button>
           </div>
@@ -76,7 +87,7 @@ function CommentNode({ comment, onReply, onAction }: { comment: any, onReply: (i
       {comment.children && comment.children.length > 0 && (
         <div className="ml-4 pl-2 border-l-2 border-gray-100 mt-2">
           {comment.children.map((child: any) => (
-            <CommentNode key={child.id} comment={child} onReply={onReply} onAction={onAction} />
+            <CommentNode key={child.id} comment={child} currentUser={currentUser} onReply={onReply} onAction={onAction} onReport={onReport} />
           ))}
         </div>
       )}
@@ -105,6 +116,7 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
   const [comments, setComments] = useState<Comment[]>([]);
   const [replyText, setReplyText] = useState('');
   const [replyingTo, setReplyingTo] = useState<{id: string, author: string} | null>(null);
+  const [flaggingCommentId, setFlaggingCommentId] = useState<string | null>(null);
   const [loadingComments, setLoadingComments] = useState(true);
   const [pinStatus, setPinStatus] = useState<ReportStatus>(pin.status);
 
@@ -150,21 +162,66 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
       });
   };
 
-  const handleCommentAction = (commentId: string, action: string) => {
+  const handleCommentAction = (commentId: string, action: string, reason?: string, details?: string) => {
+    if (!currentUser) return;
+    const username = currentUser.username;
+
     // Optimistic UI update
     setComments(prev => prev.map(c => {
       if (c.id === commentId) {
-        if (action === 'upvote') return { ...c, upvotes: (c.upvotes || 0) + 1 };
-        if (action === 'downvote') return { ...c, downvotes: (c.downvotes || 0) + 1 };
-        if (action === 'flag') return { ...c, flags: (c.flags || 0) + 1 };
+        let upvotedBy = [...(c.upvotedBy || [])];
+        let downvotedBy = [...(c.downvotedBy || [])];
+        let flaggedBy = [...(c.flaggedBy || [])];
+        let upvotes = c.upvotes || 0;
+        let downvotes = c.downvotes || 0;
+        let flags = c.flags || 0;
+
+        if (action === 'upvote') {
+          if (upvotedBy.includes(username)) {
+            upvotedBy = upvotedBy.filter(u => u !== username);
+            upvotes--;
+          } else {
+            upvotedBy.push(username);
+            upvotes++;
+            if (downvotedBy.includes(username)) {
+              downvotedBy = downvotedBy.filter(u => u !== username);
+              downvotes--;
+            }
+          }
+        } else if (action === 'downvote') {
+          if (downvotedBy.includes(username)) {
+            downvotedBy = downvotedBy.filter(u => u !== username);
+            downvotes--;
+          } else {
+            downvotedBy.push(username);
+            downvotes++;
+            if (upvotedBy.includes(username)) {
+              upvotedBy = upvotedBy.filter(u => u !== username);
+              upvotes--;
+            }
+          }
+        } else if (action === 'flag') {
+          if (flaggedBy.includes(username)) {
+            flaggedBy = flaggedBy.filter(u => u !== username);
+            flags--;
+          } else {
+            flaggedBy.push(username);
+            flags++;
+          }
+        }
+        return { ...c, upvotedBy, downvotedBy, flaggedBy, upvotes, downvotes, flags };
       }
       return c;
     }));
 
+    const payload: any = { action, username };
+    if (reason) payload.reason = reason;
+    if (details) payload.details = details;
+
     fetch(`/api/comments/${commentId}/action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify(payload),
     }).catch(err => console.error(err));
   };
 
@@ -329,8 +386,10 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
                   <CommentNode 
                     key={c.id} 
                     comment={c} 
+                    currentUser={currentUser}
                     onReply={(id, author) => setReplyingTo({ id, author })}
                     onAction={handleCommentAction}
+                    onReport={(id) => setFlaggingCommentId(id)}
                   />
                 ))}
               </div>
@@ -422,6 +481,81 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
           </div>
         </div>
       </div>
+
+      {flaggingCommentId && (
+        <ReportCommentModal 
+          onClose={() => setFlaggingCommentId(null)} 
+          onSubmit={(reason, details) => {
+            handleCommentAction(flaggingCommentId, 'flag', reason, details);
+            setFlaggingCommentId(null);
+          }} 
+        />
+      )}
     </motion.div>
+  );
+}
+
+function ReportCommentModal({ onClose, onSubmit }: { onClose: () => void, onSubmit: (reason: string, details: string) => void }) {
+  const [reason, setReason] = useState('Disrespectful / Harassment');
+  const [details, setDetails] = useState('');
+
+  const REASONS = [
+    'Disrespectful / Harassment',
+    'False Information',
+    'Spam / Promotion',
+    'Other'
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">Report Comment</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <X size={20} className="text-gray-500" />
+          </button>
+        </div>
+        
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit(reason, details); }} className="p-4 flex flex-col gap-4">
+          <div>
+            <label className="block text-[13px] font-bold text-gray-700 mb-2">Reason for reporting</label>
+            <div className="space-y-2">
+              {REASONS.map(r => (
+                <label key={r} className="flex items-center gap-2 text-[14px] text-gray-700 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="reportReason" 
+                    value={r} 
+                    checked={reason === r} 
+                    onChange={() => setReason(r)}
+                    className="w-4 h-4 text-orange-500 focus:ring-orange-500"
+                  />
+                  {r}
+                </label>
+              ))}
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-[13px] font-bold text-gray-700 mb-2">Additional details (optional)</label>
+            <textarea
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-[14px] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 min-h-[80px]"
+              placeholder="Why are you reporting this comment?"
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+            />
+          </div>
+
+          <div className="flex gap-3 mt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-3 text-[14px] font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+              Cancel
+            </button>
+            <button type="submit" className="flex-1 py-3 text-[14px] font-bold text-white bg-orange-500 rounded-xl hover:bg-orange-600 transition-colors">
+              Submit Report
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

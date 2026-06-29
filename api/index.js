@@ -869,20 +869,61 @@ app.post('/api/pins/:id/comments', async (req, res) => {
 app.post('/api/comments/:id/action', async (req, res) => {
   try {
     const { id } = req.params;
-    const { action } = req.body; // 'upvote', 'downvote', 'flag'
+    const { action, username, reason, details } = req.body; // 'upvote', 'downvote', 'flag'
     
-    let updateQuery = {};
-    if (action === 'upvote') updateQuery = { $inc: { upvotes: 1 } };
-    else if (action === 'downvote') updateQuery = { $inc: { downvotes: 1 } };
-    else if (action === 'flag') updateQuery = { $inc: { flags: 1 } };
-    else return res.status(400).json({ error: "Invalid action" });
+    if (!username) return res.status(400).json({ error: "Username required" });
+
+    const comment = await db.collection('comments').findOne({ _id: new ObjectId(id) });
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+
+    let { upvotedBy = [], downvotedBy = [], flaggedBy = [], flagReports = [], upvotes = 0, downvotes = 0, flags = 0 } = comment;
+
+    if (action === 'upvote') {
+      if (upvotedBy.includes(username)) {
+        upvotedBy = upvotedBy.filter(u => u !== username);
+        upvotes--;
+      } else {
+        upvotedBy.push(username);
+        upvotes++;
+        if (downvotedBy.includes(username)) {
+          downvotedBy = downvotedBy.filter(u => u !== username);
+          downvotes--;
+        }
+      }
+    } else if (action === 'downvote') {
+      if (downvotedBy.includes(username)) {
+        downvotedBy = downvotedBy.filter(u => u !== username);
+        downvotes--;
+      } else {
+        downvotedBy.push(username);
+        downvotes++;
+        if (upvotedBy.includes(username)) {
+          upvotedBy = upvotedBy.filter(u => u !== username);
+          upvotes--;
+        }
+      }
+    } else if (action === 'flag') {
+      if (flaggedBy.includes(username)) {
+        // Unflag
+        flaggedBy = flaggedBy.filter(u => u !== username);
+        flagReports = flagReports.filter(r => r.username !== username);
+        flags--;
+      } else {
+        // Flag with details
+        flaggedBy.push(username);
+        flagReports.push({ username, reason: reason || 'Other', details: details || '', createdAt: new Date() });
+        flags++;
+      }
+    } else {
+      return res.status(400).json({ error: "Invalid action" });
+    }
 
     const result = await db.collection('comments').findOneAndUpdate(
       { _id: new ObjectId(id) },
-      updateQuery,
+      { $set: { upvotedBy, downvotedBy, flaggedBy, flagReports, upvotes, downvotes, flags } },
       { returnDocument: 'after' }
     );
-    if (!result) return res.status(404).json({ error: "Comment not found" });
+    
     res.json({ success: true, ...result });
   } catch (err) {
     res.status(500).json({ error: err.message });

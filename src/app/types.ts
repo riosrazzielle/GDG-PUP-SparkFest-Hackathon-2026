@@ -65,6 +65,9 @@ export interface Comment {
   upvotes?: number;
   downvotes?: number;
   flags?: number;
+  upvotedBy?: string[];
+  downvotedBy?: string[];
+  flaggedBy?: string[];
 }
 
 export interface AppNotification {
