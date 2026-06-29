@@ -354,9 +354,15 @@ export function ProfileView({
                     </div>
                   ) : (
                     <div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <h3 className="text-[17px] font-bold text-gray-900">{currentUser.displayName}</h3>
-                        {currentUser.isVerified && (
+                        {(currentUser.role === 'authority' || currentUser.role === 'lgu') && (
+                          <span className="bg-blue-50 text-blue-600 text-[9.5px] font-extrabold px-2 py-0.5 rounded border border-blue-100 uppercase tracking-wider flex items-center gap-1">
+                            <Shield size={10} className="text-blue-500 fill-blue-500/20" />
+                            {currentUser.governmentCategory || 'Responder'}
+                          </span>
+                        )}
+                        {currentUser.isVerified && currentUser.role === 'citizen' && (
                           <CheckCircle size={15} className="text-blue-500 flex-shrink-0" />
                         )}
                       </div>
