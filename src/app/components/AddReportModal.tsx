@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   X, Camera, Droplets, Car, Zap, Flame, HardHat, AlertCircle,
   MapPin, Pencil, RotateCcw, CheckCircle, ImageIcon,
@@ -76,6 +76,30 @@ export function AddReportModal({ onClose, onSubmit }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isLocating, setIsLocating] = useState(true);
+
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          setAddress('Current Location');
+          setIsLocating(false);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          setIsLocating(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      setIsLocating(false);
+    }
+  }, []);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -90,9 +114,9 @@ export function AddReportModal({ onClose, onSubmit }: Props) {
 
   const handleSubmit = () => {
     setSubmitted(true);
-    // Simulate some coordinates in Manila for new reports
-    const lat = 14.5995 + (Math.random() - 0.5) * 0.05;
-    const lng = 120.9842 + (Math.random() - 0.5) * 0.05;
+    // Use actual user location if available, otherwise simulate coordinates
+    const lat = userLocation ? userLocation.lat : 14.5995 + (Math.random() - 0.5) * 0.05;
+    const lng = userLocation ? userLocation.lng : 120.9842 + (Math.random() - 0.5) * 0.05;
     
     setTimeout(() => {
       onSubmit({
@@ -158,19 +182,24 @@ export function AddReportModal({ onClose, onSubmit }: Props) {
                 <SectionLabel>Pin Location</SectionLabel>
                 <div className="flex gap-3">
                   {/* Map thumbnail */}
-                  <div className="w-[90px] h-[72px] rounded-xl overflow-hidden flex-shrink-0 border border-gray-200">
+                  <div className="w-[90px] h-[72px] rounded-xl overflow-hidden flex-shrink-0 border border-gray-200 relative group cursor-pointer transition-opacity hover:opacity-80">
                     <SmallMapPreview />
+                    <div className="absolute inset-0 bg-black/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-1 rounded">Edit Pin</span>
+                    </div>
                   </div>
                   {/* Controls */}
                   <div className="flex-1 flex flex-col gap-2">
                     <div className="flex items-center gap-1.5 text-[12px] text-gray-500">
-                      <MapPin size={12} className="text-gray-400" />
-                      <span>Drag this to the pin</span>
+                      <MapPin size={12} className={isLocating ? "text-blue-500 animate-pulse" : "text-gray-400"} />
+                      <span>
+                        {isLocating ? "Detecting location..." : userLocation ? "Using current location" : "Could not detect location"}
+                      </span>
                     </div>
                     <input
                       value={address}
                       onChange={e => setAddress(e.target.value)}
-                      placeholder="Address (e.g., pole ID, ..."
+                      placeholder="Manual Address (e.g., pole ID, corner...)"
                       className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-[12px] bg-gray-50 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                     />
                   </div>
