@@ -381,6 +381,26 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
             </div>
           )}
 
+          {/* Photo thumbnails */}
+          {allPhotos.length > 0 ? (
+            <>
+              <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-4">Photos</p>
+              <div className="flex gap-2 mb-5 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                {allPhotos.map((p, idx) => (
+                  <img key={idx} src={p} alt={`Thumbnail ${idx + 1}`} className="w-[120px] h-20 object-cover rounded-xl border border-gray-200 flex-shrink-0" />
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-4">Photos</p>
+              <div className="flex gap-2 mb-5">
+                <LandscapeThumb className="flex-1 rounded-xl" style={{ height: 80 } as React.CSSProperties} />
+                <LandscapeThumb className="flex-1 rounded-xl" style={{ height: 80 } as React.CSSProperties} />
+              </div>
+            </>
+          )}
+
           {/* Dynamic Replies/Updates Feed */}
           <div className="mt-4 mb-4 pt-3 border-t border-gray-100">
             <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">Replies & Updates</p>
@@ -438,26 +458,6 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
               </div>
             )}
           </div>
-
-          {/* Photo thumbnails */}
-          {allPhotos.length > 0 ? (
-            <>
-              <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-4">Photos</p>
-              <div className="flex gap-2 mb-5 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-                {allPhotos.map((p, idx) => (
-                  <img key={idx} src={p} alt={`Thumbnail ${idx + 1}`} className="w-[120px] h-20 object-cover rounded-xl border border-gray-200 flex-shrink-0" />
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-4">Photos</p>
-              <div className="flex gap-2 mb-5">
-                <LandscapeThumb className="flex-1 rounded-xl" style={{ height: 80 } as React.CSSProperties} />
-                <LandscapeThumb className="flex-1 rounded-xl" style={{ height: 80 } as React.CSSProperties} />
-              </div>
-            </>
-          )}
 
           {/* Divider */}
           <div className="h-px bg-gray-100 mb-4" />
