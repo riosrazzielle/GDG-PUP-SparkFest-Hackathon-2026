@@ -93,7 +93,9 @@ export default function App() {
   };
 
   const fetchReports = (username?: string) => {
-    const url = username ? `/api/reports?username=${username}` : '/api/reports';
+    // If no username is passed, but currentUser exists and is NOT admin, use currentUser.username
+    const targetUser = username || (currentUser && currentUser.role !== 'admin' ? currentUser.username : undefined);
+    const url = targetUser ? `/api/reports?username=${targetUser}` : '/api/reports';
     fetch(url)
       .then(res => res.json())
       .then(data => setUserReports(data))
@@ -111,8 +113,14 @@ export default function App() {
 
   useEffect(() => {
     fetchPins();
-    fetchReports();
   }, []);
+
+  // Fetch reports when current user changes/logs in
+  useEffect(() => {
+    if (currentUser) {
+      fetchReports();
+    }
+  }, [currentUser]);
 
   // Poll notifications
   useEffect(() => {
@@ -142,12 +150,12 @@ export default function App() {
 
   const handleDeleteReport = (report: UserReport) => {
     if (!currentUser) return;
-    const id = report.pinId || report.id;
+    const id = report.id;
     if (!id) return;
     if (confirm('Are you sure you want to delete this report?')) {
-      fetch(`/api/pins/${id}`, { method: 'DELETE' })
+      fetch(`/api/reports/${id}`, { method: 'DELETE' })
         .then(() => {
-          setUserReports(prev => prev.filter(r => (r.pinId || r.id) !== id));
+          setUserReports(prev => prev.filter(r => r.id !== id));
           fetchPins();
         })
         .catch(console.error);
@@ -295,9 +303,10 @@ export default function App() {
               onBack={() => setActivePanel(null)}
             />
           )}
-          {activePanel === 'reports' && (
+          {activePanel === 'reports' && currentUser && (
             <ReportsView
               reports={userReports}
+              currentUser={currentUser}
               onAddReport={handleAddReportClick}
               onEditReport={handleEditReportClick}
               onDeleteReport={handleDeleteReport}
@@ -308,7 +317,11 @@ export default function App() {
             <ProfileView
               language={language}
               onLanguageToggle={() => setLanguage(l => (l === 'en' ? 'fil' : 'en'))}
-              currentUser={currentUser}
+              currentUser={{
+                ...currentUser,
+                reportsCount: pins.filter(p => p.reportedBy === currentUser.username).length,
+                upvotesCount: pins.filter(p => p.reportedBy === currentUser.username).reduce((acc, p) => acc + (p.upvotes || 0), 0)
+              }}
               onProfileUpdate={handleProfileUpdate}
               onLogout={handleLogout}
               onStartVerification={() => setShowVerification(true)}
@@ -323,6 +336,7 @@ export default function App() {
               activePanel={activePanel}
               onSelect={handlePanelSelect}
               unreadCount={unreadCount}
+              userRole={currentUser?.role}
             />
           </div>
         </div>
