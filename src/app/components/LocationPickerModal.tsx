@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { X, Check } from 'lucide-react';
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyB2WFoRbVp3HPXHotn27e600KWnHJZZQ80";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyB2WFoRbVp3HPXHotn27e600KWnHJZZQ80";
 
 interface Props {
   initialLocation: { lat: number, lng: number } | null;

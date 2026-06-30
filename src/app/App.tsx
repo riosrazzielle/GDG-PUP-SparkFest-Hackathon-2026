@@ -326,6 +326,7 @@ export default function App() {
           {(showAddRoute || editingRoute) && (
             <AddRouteModal
               key="add-route"
+              pins={pins}
               editRoute={editingRoute ?? undefined}
               onClose={() => { setShowAddRoute(false); setEditingRoute(null); }}
               onSave={route => {

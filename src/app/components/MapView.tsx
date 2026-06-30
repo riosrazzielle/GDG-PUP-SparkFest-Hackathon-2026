@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import type { MapPin, HazardLevel, HazardFilter, SavedRoute } from '../types';
 import { HAZARD_COLORS } from '../types';
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyB2WFoRbVp3HPXHotn27e600KWnHJZZQ80";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyB2WFoRbVp3HPXHotn27e600KWnHJZZQ80";
 
 const reportSvgPaths: Record<string, string> = {
   flood: 'M12 22a7 7 0 0 0 7-7c0-4.3-7-11-7-11S5 10.7 5 15a7 7 0 0 0 7 7z',

@@ -213,7 +213,7 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
                       value={address}
                       onChange={e => setAddress(e.target.value)}
                       placeholder="Manual Address (e.g., pole ID, corner...)"
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-[12px] bg-gray-50 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-[12px] text-black bg-gray-50 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                     />
                   </div>
                 </div>
@@ -290,7 +290,7 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   placeholder="Details... (e.g., pole ID, depth, impact)"
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-[13px] bg-white placeholder-gray-400 focus:outline-none focus:border-gray-400"
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-[13px] text-black bg-white placeholder-gray-400 focus:outline-none focus:border-gray-400"
                 />
               </div>
 

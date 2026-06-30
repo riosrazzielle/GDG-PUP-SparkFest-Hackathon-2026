@@ -102,25 +102,6 @@ async function seedDatabase() {
     console.log("Seeded initial pins data");
   }
 
-  const routesCount = await db.collection('routes').countDocuments();
-  if (routesCount === 0) {
-    const initialRoutes = [
-      {
-        name: 'Home → Work',
-        from: 'Tondo, Manila',
-        to: 'Makati CBD',
-        distance: '17.6 km', duration: '45 min',
-        lastEdited: 'June 7, 2026',
-        nearbyReports: 3,
-        routePath: [
-          { lat: 14.6299, lng: 120.9719 },
-          { lat: 14.5794, lng: 120.9961 }
-        ]
-      }
-    ];
-    await db.collection('routes').insertMany(initialRoutes);
-    console.log("Seeded initial routes data");
-  }
 
   const reportsCount = await db.collection('reports').countDocuments();
   if (reportsCount === 0) {

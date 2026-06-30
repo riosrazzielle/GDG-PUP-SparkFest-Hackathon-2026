@@ -73,35 +73,7 @@ export const mockPins: MapPin[] = [
   },
 ];
 
-export const mockRoutes: SavedRoute[] = [
-  {
-    id: '1', name: 'Home → Work',
-    from: 'Tondo, Manila',
-    to: 'Makati CBD',
-    distance: '17.6 km', duration: '45 min',
-    lastEdited: 'June 7, 2026',
-    nearbyReports: 3,
-    routePath: [],
-  },
-  {
-    id: '2', name: 'Home → School',
-    from: 'Paco, Manila',
-    to: 'UST, Sampaloc',
-    distance: '8.7 km', duration: '25 min',
-    lastEdited: 'June 7, 2026',
-    nearbyReports: 2,
-    routePath: [],
-  },
-  {
-    id: '3', name: 'Home → Market',
-    from: 'Malate, Manila',
-    to: 'Divisoria',
-    distance: '5.3 km', duration: '18 min',
-    lastEdited: 'June 7, 2026',
-    nearbyReports: 0,
-    routePath: [],
-  },
-];
+export const mockRoutes: SavedRoute[] = [];
 
 export const mockNotifications: AppNotification[] = [
   {
