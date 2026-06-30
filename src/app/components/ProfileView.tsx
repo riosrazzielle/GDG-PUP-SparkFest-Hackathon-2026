@@ -401,7 +401,9 @@ export function ProfileView({
             <div className="bg-white px-4 py-3.5 mb-3 border-b border-gray-100 flex items-center justify-around text-center">
               <div>
                 <p className="text-[18px] font-extrabold text-slate-800">{currentUser.reportsCount}</p>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{tx.reports}</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  {(currentUser.role === 'authority' || currentUser.role === 'lgu') ? 'Reports Resolved' : tx.reports}
+                </p>
               </div>
               <div className="w-px h-8 bg-gray-100" />
               <div>
