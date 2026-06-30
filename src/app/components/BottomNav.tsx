@@ -16,7 +16,7 @@ const tabs: { key: AppPanel; Icon: React.ElementType; label: string }[] = [
 ];
 
 export function BottomNav({ activePanel, onSelect, unreadCount, userRole }: Props) {
-  const visibleTabs = userRole === 'admin'
+  const visibleTabs = userRole === 'admin' || userRole === 'lgu' || userRole === 'authority'
     ? tabs.filter(t => t.key !== 'routes')
     : tabs;
   return (
