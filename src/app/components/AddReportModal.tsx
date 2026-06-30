@@ -13,7 +13,7 @@ const GOOGLE_MAPS_API_KEY = 'AIzaSyB2WFoRbVp3HPXHotn27e600KWnHJZZQ80';
 
 interface Props {
   onClose: () => void;
-  onSubmit: (reportData: { type: string; title: string; address: string; description: string; lat: number; lng: number; photos?: string[]; radius?: number }) => void;
+  onSubmit: (reportData: { type: string; title: string; address: string; description: string; lat: number; lng: number; photos?: string[]; radius?: number; hazardLevel?: string }) => void;
   initialData?: UserReport;
 }
 
@@ -160,8 +160,8 @@ function CombinedLocationMap({
   const radiusLabel = radius >= 1000 ? `${(radius / 1000).toFixed(1)} km` : `${radius} m`;
 
   return (
-    <div className="w-full rounded-xl overflow-hidden" style={{ height: 180 }}>
-      <div className="relative w-full h-full">
+    <div className="w-full rounded-xl overflow-hidden" style={{ height: 220 }}>
+      <div className="relative w-full" style={{ height: 180 }}>
         {/* Map */}
         <div ref={mapRef} className="w-full h-full rounded-t-xl" />
 
@@ -222,6 +222,7 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
   const [pinLng, setPinLng] = useState(initialData?.lng || 120.9842);
   const [radius, setRadius] = useState(200);
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [hazardLevel, setHazardLevel] = useState<'minor' | 'needs-attention' | 'urgent' | 'critical'>('minor');
   const [photos, setPhotos] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
@@ -242,11 +243,17 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
       alert('Please pin a location on the map.');
       return;
     }
+    if (photos.length === 0) {
+      alert('Please upload at least one photo.');
+      return;
+    }
     setSubmitted(true);
     setTimeout(() => {
-      onSubmit({ type: category, title: title.trim(), address: address || 'Manila', description, lat: pinLat, lng: pinLng, radius, photos });
+      onSubmit({ type: category, title: title.trim(), address: address || 'Manila', description, lat: pinLat, lng: pinLng, radius, photos, hazardLevel });
     }, 1800);
   };
+
+  const isFormValid = title.trim().length > 0 && address.trim().length > 0 && photos.length > 0;
 
   const handleLocateCurrentPosition = () => {
     navigator.geolocation?.getCurrentPosition(
@@ -331,7 +338,9 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
 
               {/* Incident Title & Type */}
               <div className="relative z-20">
-                <p className="text-[14px] font-extrabold text-gray-900 mb-1.5">Incident</p>
+                <p className="text-[14px] font-extrabold text-gray-900 mb-1.5">
+                  Incident <span className="text-red-500">*</span>
+                </p>
                 <div className="flex items-center bg-white rounded-xl px-3.5 py-3 border border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all relative">
                   {/* Selected Category Icon Button */}
                   <button
@@ -385,6 +394,41 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
                       </motion.div>
                     )}
                   </AnimatePresence>
+                </div>
+              </div>
+
+              {/* Hazard Level */}
+              <div>
+                <p className="text-[14px] font-extrabold text-gray-900 mb-1.5">Hazard Level</p>
+                <div className="flex gap-2 flex-wrap">
+                  {([
+                    { key: 'minor', label: 'Minor', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+                    { key: 'needs-attention', label: 'Needs Attention', color: '#ca8a04', bg: '#fefce8', border: '#fef08a' },
+                    { key: 'urgent', label: 'Urgent', color: '#ea580c', bg: '#fff7ed', border: '#fed7aa' },
+                    { key: 'critical', label: 'Critical', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+                  ] as const).map(({ key, label, color, bg, border }) => {
+                    const active = hazardLevel === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setHazardLevel(key)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold border transition-all cursor-pointer"
+                        style={{
+                          background: active ? bg : 'white',
+                          borderColor: active ? border : '#e5e7eb',
+                          color: active ? color : '#6b7280',
+                          boxShadow: active ? `0 0 0 2px ${border}` : 'none',
+                        }}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ background: color }}
+                        />
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -473,11 +517,15 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
 
               {/* Description */}
               <div>
-                <p className="text-[14px] font-extrabold text-gray-900 mb-1.5">Description</p>
+                <p className="text-[14px] font-extrabold text-gray-900 mb-1.5">
+                  Description
+                  <span className="ml-1.5 text-[11px] font-medium text-gray-400">(optional)</span>
+                </p>
                 <textarea
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   rows={3}
+                  placeholder="Add any extra details..."
                   className="w-full bg-white rounded-xl px-3.5 py-3 text-[13px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
                 />
               </div>
@@ -489,8 +537,13 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
             <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 pt-3">
               <button
                 onClick={handleSubmit}
-                className="w-full py-4 rounded-2xl text-white text-[16px] font-bold active:opacity-90 transition-opacity cursor-pointer shadow-lg"
-                style={{ backgroundColor: '#2563EB' }}
+                disabled={!isFormValid}
+                className="w-full py-4 rounded-2xl text-white text-[16px] font-bold transition-all shadow-lg"
+                style={{
+                  backgroundColor: isFormValid ? '#2563EB' : '#A0AEC0',
+                  cursor: isFormValid ? 'pointer' : 'not-allowed',
+                  opacity: isFormValid ? 1 : 0.7,
+                }}
               >
                 {initialData ? 'Save Changes' : 'Submit Report'}
               </button>

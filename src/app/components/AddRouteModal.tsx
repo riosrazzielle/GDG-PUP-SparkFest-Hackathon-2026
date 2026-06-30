@@ -488,7 +488,7 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
 
   const hasValidDest = !!(destPlace || destLatLng) || (isEditMode && destAddress.trim());
 
-  const canSave = hasValidStart && hasValidDest;
+  const canSave = hasValidStart && hasValidDest && routeName.trim().length > 0;
 
 
 
@@ -641,7 +641,7 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
       const lastEdited = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
       const fromLabel = useCurrentLocation
-        ? 'Current Location'
+        ? (startAddress.trim() || 'Current Location')
         : startLatLng
           ? startAddress || 'Pinned Start'
           : (startPlace?.name ?? startPlace?.formatted_address ?? startAddress);
@@ -725,7 +725,7 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
 
               {/* Route Name */}
               <div>
-                <SectionLabel>Route Name</SectionLabel>
+                <SectionLabel>Route Name <span style={{ color: '#ef4444' }}>*</span></SectionLabel>
                 <input
                   value={routeName}
                   onChange={e => setRouteName(e.target.value)}
@@ -736,7 +736,7 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
 
               {/* ── Route Points (Compact Connector Layout) ── */}
               <div>
-                <SectionLabel>Route Points</SectionLabel>
+                <SectionLabel>Route Points <span style={{ color: '#ef4444' }}>*</span></SectionLabel>
                 <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 flex gap-3 relative shadow-inner">
                   {/* Visual timeline connector */}
                   <div className="flex flex-col items-center justify-between py-3 flex-shrink-0">
@@ -925,8 +925,12 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
               <button
                 onClick={handleSave}
                 disabled={saving || !canSave}
-                className="w-full py-4 rounded-2xl text-white text-[16px] font-bold active:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: '#1d4ed8' }}
+                className="w-full py-4 rounded-2xl text-white text-[16px] font-bold transition-all flex items-center justify-center gap-2"
+                style={{
+                  backgroundColor: (!saving && canSave) ? '#1d4ed8' : '#A0AEC0',
+                  cursor: (!saving && canSave) ? 'pointer' : 'not-allowed',
+                  opacity: (!saving && canSave) ? 1 : 0.7,
+                }}
               >
                 {saving
                   ? <><Loader2 size={18} className="animate-spin" /> Calculating Route…</>

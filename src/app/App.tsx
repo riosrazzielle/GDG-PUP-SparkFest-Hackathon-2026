@@ -34,7 +34,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [language, setLanguage] = useState<'en' | 'fil'>('en');
   const { routes, addRoute, updateRoute, deleteRoute } = useRoutes();
-  
+
   const [pins, setPins] = useState<MapPin[]>([]);
   const [userReports, setUserReports] = useState<UserReport[]>([]);
 
@@ -142,10 +142,12 @@ export default function App() {
 
   const handleDeleteReport = (report: UserReport) => {
     if (!currentUser) return;
+    const id = report.pinId || report.id;
+    if (!id) return;
     if (confirm('Are you sure you want to delete this report?')) {
-      fetch(`/api/pins/${report.pinId}`, { method: 'DELETE' })
+      fetch(`/api/pins/${id}`, { method: 'DELETE' })
         .then(() => {
-          fetchReports(currentUser.username);
+          setUserReports(prev => prev.filter(r => (r.pinId || r.id) !== id));
           fetchPins();
         })
         .catch(console.error);
@@ -157,9 +159,9 @@ export default function App() {
     setShowAddReport(true);
   };
 
-  const handleAddReportSubmit = (reportData: { type: string; title: string; address: string; description: string; lat: number; lng: number; photo?: string; photos?: string[] }) => {
+  const handleAddReportSubmit = (reportData: { type: string; title: string; address: string; description: string; lat: number; lng: number; photo?: string; photos?: string[]; hazardLevel?: string }) => {
     if (!currentUser) return;
-    
+
     if (editingReport) {
       // Edit existing report
       fetch(`/api/pins/${editingReport.pinId}/edit`, {
@@ -192,7 +194,7 @@ export default function App() {
         })
         .catch(console.error);
     }
-    
+
     setShowAddReport(false);
     setEditingReport(null);
   };
