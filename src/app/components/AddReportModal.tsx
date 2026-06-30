@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import {
-  X, Camera, Droplets, Car, Zap, Flame, HardHat, AlertCircle, ImageIcon, CheckCircle,
+  X, Camera, Droplets, Car, Zap, Flame, HardHat, AlertCircle, ImageIcon, CheckCircle, Shield, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PanelHeader } from './PanelHeader';
@@ -19,12 +19,13 @@ interface Props {
 
 const CATEGORIES = [
   { key: 'flood', label: 'Flood', Icon: Droplets },
-  { key: 'traffic', label: 'Traffic', Icon: Car },
-  { key: 'fallen-pole', label: 'Fallen Pole', Icon: Zap },
-  { key: 'car-crash', label: 'Car Crash', Icon: Car },
-  { key: 'road-work', label: 'Road Work', Icon: HardHat },
+  { key: 'road-damage', label: 'Road Damage', Icon: HardHat },
+  { key: 'peace-and-order', label: 'Peace and Order', Icon: Shield },
+  { key: 'utility-outages', label: 'Utility Outages', Icon: Zap },
+  { key: 'waste-collection', label: 'Waste Collection', Icon: Trash2 },
+  { key: 'infrastructure', label: 'Infrastructure and Public Works', Icon: HardHat },
   { key: 'fire', label: 'Fire', Icon: Flame },
-  { key: 'other', label: 'Other', Icon: AlertCircle },
+  { key: 'other', label: 'Others', Icon: AlertCircle },
 ];
 
 /* ── Combined Location & Radius Map ── */

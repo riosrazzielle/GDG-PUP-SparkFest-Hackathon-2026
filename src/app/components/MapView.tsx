@@ -255,13 +255,13 @@ function MapInner({ pins, activeRoute, onOpenDetail, onClearActiveRoute }: Props
 
       const CATEGORIES: Record<string, string> = {
         'flood': 'Flood',
-        'traffic': 'Traffic',
-        'fallen-pole': 'Fallen Pole',
-        'car-crash': 'Car Crash',
-        'road-work': 'Road Work',
+        'road-damage': 'Road Damage',
+        'peace-and-order': 'Peace and Order',
+        'utility-outages': 'Utility Outages',
+        'waste-collection': 'Waste Collection',
+        'infrastructure': 'Infrastructure and Public Works',
         'fire': 'Fire',
-        'hazard': 'Road Hazard',
-        'other': 'Other'
+        'other': 'Others'
       };
       
       marker.addListener('click', () => {
