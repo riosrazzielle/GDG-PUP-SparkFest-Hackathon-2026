@@ -81,12 +81,9 @@ function RouteCard({
       style={{ background: '#FFF9C4' }}
     >
       <div className="flex items-start gap-3">
-        {/* Route icon */}
-        <RouteIcon />
-
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Name + mode */}
+          {/* Name + mode + distance + time */}
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <p className="text-[13px] font-extrabold text-gray-900">
               {route.name || `${route.from} → ${route.to}`}
@@ -94,6 +91,16 @@ function RouteCard({
             <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 rounded-full px-2 py-0.5">
               {modeLabel}
             </span>
+            {route.distance && (
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 font-medium ml-1">
+                <Ruler size={9} />{route.distance}
+              </span>
+            )}
+            {route.duration && (
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 font-medium">
+                <Clock size={9} />{route.duration}
+              </span>
+            )}
           </div>
 
           {/* From → To */}
@@ -103,31 +110,12 @@ function RouteCard({
             <span className="truncate">{route.to}</span>
           </div>
 
-          {/* Meta row */}
-          <div className="flex items-center gap-3 mt-1 flex-wrap">
-            {route.distance && (
-              <span className="flex items-center gap-1 text-[10px] text-gray-400 font-medium">
-                <Ruler size={9} />{route.distance}
-              </span>
-            )}
-            {route.duration && (
-              <span className="flex items-center gap-1 text-[10px] text-gray-400 font-medium">
-                <Clock size={9} />{route.duration}
-              </span>
-            )}
-            {route.lastEdited && (
-              <span className="text-[10px] text-gray-400 font-medium">
-                Last edited: {route.lastEdited}
-              </span>
-            )}
-          </div>
-
           {/* Hazard badge */}
           {nearbyCount > 0 ? (
             <button
               onClick={() => setHazardsOpen((v) => !v)}
               className="mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold cursor-pointer transition-colors"
-              style={{ background: '#4ade80', color: '#14532d' }}
+              style={{ background: '#ef4444', color: 'white' }}
             >
               <AlertCircle size={9} />
               {nearbyCount} Report{nearbyCount > 1 ? 's' : ''} Nearby
@@ -141,39 +129,29 @@ function RouteCard({
           )}
         </div>
 
-        {/* Menu */}
-        <div className="relative flex-shrink-0">
+        {/* Menu Actions */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
-            onClick={() => setMenuOpen((v) => !v)}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg transition-colors cursor-pointer"
+            onClick={onViewOnMap}
+            title="View on Map"
+            className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
           >
-            <MoreHorizontal size={16} />
+            <Eye size={16} />
           </button>
-          <AnimatePresence>
-            {menuOpen && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.92, y: -4 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: -4 }}
-                transition={{ duration: 0.12 }}
-                className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
-                style={{ minWidth: 140 }}
-              >
-                <button onClick={() => { onViewOnMap(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer">
-                  <Eye size={13} /> View on Map
-                </button>
-                <button onClick={() => { onEdit(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer">
-                  <Edit2 size={13} /> Edit Route
-                </button>
-                <button onClick={() => { onDelete(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-semibold text-red-500 hover:bg-red-50 cursor-pointer">
-                  <Trash2 size={13} /> Delete
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <button
+            onClick={onEdit}
+            title="Edit Route"
+            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
+          >
+            <Edit2 size={16} />
+          </button>
+          <button
+            onClick={onDelete}
+            title="Delete Route"
+            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-white rounded-lg transition-colors cursor-pointer"
+          >
+            <Trash2 size={16} />
+          </button>
         </div>
       </div>
 

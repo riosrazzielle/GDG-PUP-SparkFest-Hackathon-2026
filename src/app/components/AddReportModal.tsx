@@ -5,6 +5,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PanelHeader } from './PanelHeader';
+import { CameraView } from './CameraView';
+import { LocationPickerModal } from './LocationPickerModal';
+import type { UserReport } from '../types';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyB2WFoRbVp3HPXHotn27e600KWnHJZZQ80';
 
@@ -261,13 +264,16 @@ function AffectedAreaMap({ lat, lng }: { lat: number; lng: number }) {
 }
 
 /* ── Main modal ── */
-export function AddReportModal({ onClose, onSubmit }: Props) {
+export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
   const [category, setCategory] = useState('fallen-pole');
   const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [pinLat, setPinLat] = useState(14.5995);
   const [pinLng, setPinLng] = useState(120.9842);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
 
   const handleLocationChange = (lat: number, lng: number, addr: string) => {
     setPinLat(lat);

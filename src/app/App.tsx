@@ -140,6 +140,23 @@ export default function App() {
     }
   };
 
+  const handleDeleteReport = (report: UserReport) => {
+    if (!currentUser) return;
+    if (confirm('Are you sure you want to delete this report?')) {
+      fetch(`/api/pins/${report.pinId}`, { method: 'DELETE' })
+        .then(() => {
+          fetchReports(currentUser.username);
+          fetchPins();
+        })
+        .catch(console.error);
+    }
+  };
+
+  const handleEditReportClick = (report: UserReport) => {
+    setEditingReport(report);
+    setShowAddReport(true);
+  };
+
   const handleAddReportSubmit = (reportData: { type: string; address: string; description: string; lat: number; lng: number; photo?: string; photos?: string[] }) => {
     if (!currentUser) return;
     
@@ -273,6 +290,8 @@ export default function App() {
             <ReportsView
               reports={userReports}
               onAddReport={handleAddReportClick}
+              onEditReport={handleEditReportClick}
+              onDeleteReport={handleDeleteReport}
               onBack={() => setActivePanel(null)}
             />
           )}
