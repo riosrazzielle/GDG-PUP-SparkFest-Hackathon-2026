@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { MapView } from './components/MapView';
 import { BottomNav } from './components/BottomNav';
 import { NotificationsPanel } from './components/NotificationsPanel';
@@ -148,22 +148,42 @@ export default function App() {
     }
   };
 
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'report' | 'route'; id: string; name?: string } | null>(null);
+
   const handleDeleteReport = (report: UserReport) => {
     if (!currentUser) return;
-    const id = report.id;
-    if (!id) return;
-    if (confirm('Are you sure you want to delete this report?')) {
+    setDeleteTarget({ type: 'report', id: report.id, name: report.typeName });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    const { type, id } = deleteTarget;
+    if (type === 'report') {
       fetch(`/api/reports/${id}`, { method: 'DELETE' })
         .then(() => {
           setUserReports(prev => prev.filter(r => r.id !== id));
           fetchPins();
+          setDeleteTarget(null);
         })
         .catch(console.error);
+    } else {
+      deleteRoute(id);
+      setDeleteTarget(null);
     }
   };
 
   const handleEditReportClick = (report: UserReport) => {
-    setEditingReport(report);
+    const pin = pins.find(p => p.id === report.pinId?.toString() || p.id === report.pinId);
+    setEditingReport({
+      ...report,
+      title: report.typeName,
+      type: report.typeKey,
+      address: report.location,
+      description: report.moreDetails,
+      lat: pin ? pin.lat : 14.5995,
+      lng: pin ? pin.lng : 120.9842,
+      hazardLevel: pin ? pin.hazardLevel : 'minor',
+    } as any);
     setShowAddReport(true);
   };
 
@@ -291,7 +311,10 @@ export default function App() {
                 setActivePanel(null);
                 setShowAddRoute(true);
               }}
-              onDeleteRoute={deleteRoute}
+              onDeleteRoute={id => {
+                const route = routes.find(r => r.id === id);
+                setDeleteTarget({ type: 'route', id, name: route?.name });
+              }}
               onEditRoute={route => {
                 setEditingRoute(route);
                 setActivePanel(null);
@@ -395,6 +418,49 @@ export default function App() {
               onClose={() => setShowVerification(false)}
               onVerificationUpdate={handleProfileUpdate}
             />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {deleteTarget && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/45 backdrop-blur-[2px] z-[70] flex items-center justify-center p-6"
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                className="bg-white rounded-3xl p-6 shadow-2xl max-w-[320px] w-full text-center border border-gray-100"
+              >
+                <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4 text-red-500">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/>
+                  </svg>
+                </div>
+                <h3 className="text-[16px] font-extrabold text-gray-900 mb-2">
+                  Delete {deleteTarget.type === 'report' ? 'Report?' : 'Route?'}
+                </h3>
+                <p className="text-[12px] text-gray-500 leading-relaxed mb-6">
+                  Are you sure you want to delete {deleteTarget.name ? `"${deleteTarget.name}"` : `this ${deleteTarget.type}`}? This action cannot be undone.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setDeleteTarget(null)}
+                    className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 text-[13px] font-bold hover:bg-gray-50 active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDelete}
+                    className="flex-1 py-3 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600 active:scale-[0.98] transition-all cursor-pointer shadow-lg shadow-red-500/20"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>

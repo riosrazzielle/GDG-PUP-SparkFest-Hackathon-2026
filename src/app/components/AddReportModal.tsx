@@ -220,10 +220,10 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [pinLat, setPinLat] = useState(initialData?.lat || 14.5995);
   const [pinLng, setPinLng] = useState(initialData?.lng || 120.9842);
-  const [radius, setRadius] = useState(200);
+  const [radius, setRadius] = useState(initialData?.radius || 200);
   const [showIconPicker, setShowIconPicker] = useState(false);
-  const [hazardLevel, setHazardLevel] = useState<'minor' | 'needs-attention' | 'urgent' | 'critical'>('minor');
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [hazardLevel, setHazardLevel] = useState<'minor' | 'needs-attention' | 'urgent' | 'critical'>((initialData as any)?.hazardLevel || 'minor');
+  const [photos, setPhotos] = useState<string[]>(initialData?.photos || []);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -310,9 +310,11 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
             >
               <CheckCircle size={40} className="text-green-600" />
             </motion.div>
-            <h2 className="text-[22px] font-bold text-gray-900 mb-2">Report Submitted!</h2>
+            <h2 className="text-[22px] font-bold text-gray-900 mb-2">
+              {initialData ? 'Report Updated!' : 'Report Submitted!'}
+            </h2>
             <p className="text-[14px] text-gray-600">
-              Salamat! Your report has been sent to the relevant authorities.
+              {initialData ? 'Salamat! Your report has been updated successfully.' : 'Salamat! Your report has been sent to the relevant authorities.'}
             </p>
           </motion.div>
         ) : (
@@ -320,7 +322,7 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
 
             {/* Combined Header */}
             <PanelHeader
-              title="New Report"
+              title={initialData ? "Edit Report" : "New Report"}
               onBack={onClose}
               bg="#B8DCE8"
               rightAction={
