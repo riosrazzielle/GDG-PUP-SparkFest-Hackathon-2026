@@ -427,28 +427,9 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
           <div className="mt-4 mb-4 pt-3 border-t border-gray-100">
             <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">Replies & Updates</p>
 
-            {loadingComments ? (
-              <p className="text-[12.5px] text-gray-400">Loading replies...</p>
-            ) : comments.length === 0 ? (
-              <p className="text-[12.5px] text-gray-400 italic bg-gray-50 rounded-xl p-3">No replies yet. Be the first to reply!</p>
-            ) : (
-              <div className="space-y-3">
-                {buildCommentTree(comments).map(c => (
-                  <CommentNode
-                    key={c.id}
-                    comment={c}
-                    currentUser={currentUser}
-                    onReply={(id, author) => setReplyingTo({ id, author })}
-                    onAction={handleCommentAction}
-                    onReport={(id) => setFlaggingCommentId(id)}
-                  />
-                ))}
-              </div>
-            )}
-
             {/* Reply Input Form */}
             {currentUser && (
-              <div className="mt-4 flex flex-col gap-2">
+              <div className="mt-2 mb-4 flex flex-col gap-2">
                 {replyingTo && (
                   <div className="flex items-center justify-between bg-blue-50 text-blue-700 text-[11px] font-bold px-3 py-1.5 rounded-lg w-max">
                     <span>Replying to @{replyingTo.author}</span>
@@ -477,6 +458,25 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
                     Send
                   </button>
                 </form>
+              </div>
+            )}
+
+            {loadingComments ? (
+              <p className="text-[12.5px] text-gray-400">Loading replies...</p>
+            ) : comments.length === 0 ? (
+              <p className="text-[12.5px] text-gray-400 italic bg-gray-50 rounded-xl p-3">No replies yet. Be the first to reply!</p>
+            ) : (
+              <div className="space-y-3">
+                {buildCommentTree(comments).map(c => (
+                  <CommentNode
+                    key={c.id}
+                    comment={c}
+                    currentUser={currentUser}
+                    onReply={(id, author) => setReplyingTo({ id, author })}
+                    onAction={handleCommentAction}
+                    onReport={(id) => setFlaggingCommentId(id)}
+                  />
+                ))}
               </div>
             )}
           </div>
