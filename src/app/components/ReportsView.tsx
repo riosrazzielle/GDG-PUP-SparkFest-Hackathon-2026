@@ -5,6 +5,7 @@ import type { UserReport } from '../types';
 
 interface Props {
   reports: UserReport[];
+  currentUser: UserProfile;
   onAddReport: () => void;
   onEditReport: (report: UserReport) => void;
   onDeleteReport: (report: UserReport) => void;
@@ -28,10 +29,26 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function ReportCard({ report, onEdit, onDelete }: { report: UserReport, onEdit: () => void, onDelete: () => void }) {
+function ReportCard({
+  report,
+  currentUser,
+  onEdit,
+  onDelete,
+}: {
+  report: UserReport & { reportedBy?: string };
+  currentUser: UserProfile;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const title = report.title || report.typeName;
   const desc = report.description || report.moreDetails;
   const imageUrl = report.photos && report.photos.length > 0 ? report.photos[0] : null;
+
+  // The creator of the report is the owner. If no reportedBy field is present (legacy data),
+  // assume ownership for non-admin users so they can still manage their old local data.
+  const isOwner = !report.reportedBy || report.reportedBy === currentUser.username;
+  const canEdit = isOwner && currentUser.role !== 'admin';
+  const canDelete = isOwner || currentUser.role === 'admin';
 
   return (
     <div className="flex items-center gap-3.5 rounded-2xl px-3.5 py-3 mb-3 bg-white border border-gray-100 shadow-sm">
@@ -51,12 +68,16 @@ function ReportCard({ report, onEdit, onDelete }: { report: UserReport, onEdit: 
             <StatusBadge status={report.status} />
           </div>
           <div className="flex items-center flex-shrink-0 gap-1">
-            <button onClick={onEdit} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer" title="Edit">
-              <Pencil size={16} />
-            </button>
-            <button onClick={onDelete} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer" title="Delete">
-              <Trash2 size={16} />
-            </button>
+            {canEdit && (
+              <button onClick={onEdit} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer" title="Edit">
+                <Pencil size={16} />
+              </button>
+            )}
+            {canDelete && (
+              <button onClick={onDelete} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer" title="Delete">
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -65,9 +86,15 @@ function ReportCard({ report, onEdit, onDelete }: { report: UserReport, onEdit: 
           <p className="text-[12px] text-gray-600 truncate leading-snug">{desc}</p>
         )}
 
-        {/* Date & Time */}
+        {/* Date & Time & Reporter */}
         <p className="text-[11px] text-gray-500 font-medium leading-snug mt-auto">
           {report.date} <span className="text-gray-300 mx-1">|</span> {report.time}
+          {report.reportedBy && (
+            <>
+              <span className="text-gray-300 mx-1">|</span>
+              <span className="text-blue-600 font-bold">@{report.reportedBy}</span>
+            </>
+          )}
         </p>
 
         {/* Location */}
@@ -80,14 +107,23 @@ function ReportCard({ report, onEdit, onDelete }: { report: UserReport, onEdit: 
   );
 }
 
-export function ReportsView({ reports, onAddReport, onEditReport, onDeleteReport, onBack }: Props) {
+export function ReportsView({
+  reports,
+  currentUser,
+  onAddReport,
+  onEditReport,
+  onDeleteReport,
+  onBack,
+}: Props) {
+  const isAdmin = currentUser?.role === 'admin';
+
   return (
     <div
       className="absolute inset-0 z-40 flex flex-col"
       style={{ background: '#F5F0C0' }}
     >
       {/* Header */}
-      <PanelHeader title="My Reports" onBack={onBack} />
+      <PanelHeader title={isAdmin ? "Reports" : "My Reports"} onBack={onBack} />
 
       {/* List */}
       <div className="flex-1 overflow-y-auto px-4 pb-28">
@@ -100,22 +136,34 @@ export function ReportsView({ reports, onAddReport, onEditReport, onDeleteReport
               <LandscapeThumb className="w-10 h-10 rounded-lg" />
             </div>
             <p className="text-[14px] font-bold text-gray-500">No reports yet</p>
-            <p className="text-[12px] text-gray-400 mt-1">Tap + to submit your first hazard report</p>
+            <p className="text-[12px] text-gray-400 mt-1">
+              {isAdmin ? "There are no reports submitted in the system." : "Tap + to submit your first hazard report"}
+            </p>
           </div>
         ) : (
-          reports.map((r) => <ReportCard key={r.id} report={r} onEdit={() => onEditReport(r)} onDelete={() => onDeleteReport(r)} />)
+          reports.map((r) => (
+            <ReportCard
+              key={r.id}
+              report={r}
+              currentUser={currentUser}
+              onEdit={() => onEditReport(r)}
+              onDelete={() => onDeleteReport(r)}
+            />
+          ))
         )}
       </div>
 
-      {/* FAB */}
-      <button
-        id="add-report-fab"
-        onClick={onAddReport}
-        className="absolute bottom-28 right-5 w-16 h-16 rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-transform cursor-pointer"
-        style={{ background: '#F59E0B' }}
-      >
-        <Plus size={28} color="white" strokeWidth={2.5} />
-      </button>
+      {/* FAB - Hide for admins */}
+      {!isAdmin && (
+        <button
+          id="add-report-fab"
+          onClick={onAddReport}
+          className="absolute bottom-28 right-5 w-16 h-16 rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-transform cursor-pointer"
+          style={{ background: '#F59E0B' }}
+        >
+          <Plus size={28} color="white" strokeWidth={2.5} />
+        </button>
+      )}
     </div>
   );
 }

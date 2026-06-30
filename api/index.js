@@ -152,7 +152,8 @@ app.post('/api/pins', async (req, res) => {
       photo: req.body.photo || null,
       photos: req.body.photos || (req.body.photo ? [req.body.photo] : []),
       radius: req.body.radius ? Number(req.body.radius) : undefined,
-      pinId: result.insertedId
+      pinId: result.insertedId,
+      reportedBy: req.body.reportedBy || 'anonymous'
     };
     await db.collection('reports').insertOne(userReport);
 
@@ -368,12 +369,52 @@ app.put('/api/routes/:id', async (req, res) => {
    REPORTS ENDPOINTS (/api/reports)
    ========================================================================== */
 
-// Get all user reports
+// Get all user reports (filtered by username if specified)
 app.get('/api/reports', async (req, res) => {
   try {
-    const reports = await db.collection('reports').find({}).toArray();
+    const { username } = req.query;
+    let query = {};
+    if (username) {
+      // Find pin IDs reported by this user to fetch associated reports
+      const userPins = await db.collection('pins').find({ reportedBy: username }).toArray();
+      const pinIds = userPins.map(p => p._id);
+      
+      query = {
+        $or: [
+          { reportedBy: username },
+          { pinId: { $in: pinIds } }
+        ]
+      };
+    }
+    const reports = await db.collection('reports').find(query).toArray();
     const formatted = reports.map(r => ({ ...r, id: r._id.toString() }));
     res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a report (and its associated pin and comments if it exists)
+app.delete('/api/reports/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find the report first
+    const report = await db.collection('reports').findOne({ _id: new ObjectId(id) });
+    if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    
+    // Delete the report
+    await db.collection('reports').deleteOne({ _id: new ObjectId(id) });
+    
+    // If it has a pinId, delete the pin and comments
+    if (report.pinId) {
+      await db.collection('pins').deleteOne({ _id: new ObjectId(report.pinId) });
+      await db.collection('comments').deleteMany({ pinId: report.pinId.toString() });
+    }
+    
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
