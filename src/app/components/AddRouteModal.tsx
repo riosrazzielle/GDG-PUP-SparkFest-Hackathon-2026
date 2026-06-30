@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { X, CheckCircle, Loader2, Navigation, MapPin as MapPinIcon, Map } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
-import type { SavedRoute, MapPin } from '../types';
+import type { SavedRoute, MapPin, HazardLevel } from '../types';
+import { HAZARD_COLORS, reportSvgPaths } from '../types';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyB2WFoRbVp3HPXHotn27e600KWnHJZZQ80';
 
@@ -258,6 +259,7 @@ function RoutePreviewMap({
   currentLatLng,
   travelMode,
   placesReady,
+  pins,
 }: {
   startAddress: string;
   destAddress: string;
@@ -269,16 +271,23 @@ function RoutePreviewMap({
   currentLatLng: { lat: number; lng: number } | null;
   travelMode: string;
   placesReady: boolean;
+  pins: MapPin[];
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const [mapsLoaded, setMapsLoaded] = useState(false);
 
   useEffect(() => {
     if (!placesReady || !mapRef.current) return;
 
-    Promise.all([importLibrary('maps'), importLibrary('routes')]).then(() => {
+    Promise.all([
+      importLibrary('maps'),
+      importLibrary('routes'),
+      importLibrary('marker')
+    ]).then(() => {
       if (!mapRef.current) return;
 
       const map = new google.maps.Map(mapRef.current, {
@@ -297,16 +306,65 @@ function RoutePreviewMap({
         suppressMarkers: false,
       });
       directionsRendererRef.current = directionsRenderer;
+      
+      setMapsLoaded(true);
     });
 
     return () => {
       directionsRendererRef.current?.setMap(null);
+      markersRef.current.forEach(m => m.setMap(null));
       mapInstanceRef.current = null;
     };
   }, [placesReady]);
 
   useEffect(() => {
-    if (!placesReady || !directionsServiceRef.current || !directionsRendererRef.current) return;
+    if (!mapsLoaded || !mapInstanceRef.current || !placesReady) return;
+    
+    // Clear old markers
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+
+    // Add new markers
+    pins.forEach(pin => {
+      try {
+        const hazardLvl = pin.hazardLevel || 'needs-attention';
+        const hazardColor = HAZARD_COLORS[hazardLvl as HazardLevel] || HAZARD_COLORS['needs-attention'];
+        const { bg } = hazardColor;
+        const path = reportSvgPaths[pin.type] ?? reportSvgPaths['other'];
+        
+        // Build SVG data-URL icon
+        const svgStr = [
+          `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44">`,
+          `<path d="M16 2C9.373 2 4 7.373 4 14C4 23 16 40 16 40C16 40 28 23 28 14C28 7.373 22.627 2 16 2Z"`,
+          ` fill="${bg}" stroke="white" stroke-width="2"/>`,
+          `<circle cx="16" cy="14" r="7" fill="white" fill-opacity="0.25"/>`,
+          `<svg x="10" y="8" width="12" height="12" viewBox="0 0 24 24" fill="none"`,
+          ` stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">`,
+          `<path d="${path}"/></svg>`,
+          `</svg>`,
+        ].join('');
+
+        const icon: google.maps.Icon = {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgStr),
+          scaledSize: new google.maps.Size(32, 44),
+          anchor: new google.maps.Point(16, 44),
+        };
+
+        const marker = new google.maps.Marker({
+          position: { lat: Number(pin.lat), lng: Number(pin.lng) },
+          map: mapInstanceRef.current,
+          title: pin.title,
+          icon
+        });
+        markersRef.current.push(marker);
+      } catch (err) {
+        console.error('Failed to add pin marker to preview map:', err);
+      }
+    });
+  }, [pins, placesReady, mapsLoaded]);
+
+  useEffect(() => {
+    if (!mapsLoaded || !placesReady || !directionsServiceRef.current || !directionsRendererRef.current) return;
 
     // Resolve Origin
     let origin: any = null;
@@ -368,6 +426,7 @@ function RoutePreviewMap({
     useCurrentLocation,
     currentLatLng,
     travelMode,
+    mapsLoaded,
   ]);
 
   return (
@@ -393,11 +452,17 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
   const [destAddress, setDestAddress] = useState(editRoute?.to ?? '');
   const [startPlace, setStartPlace] = useState<google.maps.places.PlaceResult | null>(null);
   const [destPlace, setDestPlace] = useState<google.maps.places.PlaceResult | null>(null);
-  const [startLatLng, setStartLatLng] = useState<{ lat: number; lng: number } | null>(null);
-  const [destLatLng, setDestLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  const [startLatLng, setStartLatLng] = useState<{ lat: number; lng: number } | null>(() => {
+    if (editRoute?.routePath && editRoute.routePath.length > 0) return editRoute.routePath[0];
+    return null;
+  });
+  const [destLatLng, setDestLatLng] = useState<{ lat: number; lng: number } | null>(() => {
+    if (editRoute?.routePath && editRoute.routePath.length > 0) return editRoute.routePath[editRoute.routePath.length - 1];
+    return null;
+  });
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [currentLatLng, setCurrentLatLng] = useState<{ lat: number; lng: number } | null>(null);
-  const [travelMode, setTravelMode] = useState<string>('DRIVING');
+  const [travelMode, setTravelMode] = useState<string>(editRoute?.travelMode ?? 'DRIVING');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
@@ -429,7 +494,12 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
 
   /* GPS current location */
   useEffect(() => {
-    if (!useCurrentLocation) { setCurrentLatLng(null); setStartAddress(''); return; }
+    if (!useCurrentLocation) { 
+      // Only wipe startAddress if we were previously using current location
+      if (currentLatLng) setStartAddress('');
+      setCurrentLatLng(null); 
+      return; 
+    }
     navigator.geolocation?.getCurrentPosition(
       pos => {
         const { latitude: lat, longitude: lng } = pos.coords;
@@ -747,6 +817,7 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
                 currentLatLng={currentLatLng}
                 travelMode={travelMode}
                 placesReady={placesReady}
+                pins={pins}
               />
 
               {/* Route Options */}
