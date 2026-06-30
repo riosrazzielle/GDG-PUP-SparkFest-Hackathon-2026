@@ -112,25 +112,25 @@ function RouteCard({
         {/* Right column: Inline Action Buttons (Eye, Edit, Delete) + Hazard badge */}
         <div className="flex-shrink-0 flex flex-col items-end gap-3 justify-start">
           {/* Action buttons row */}
-          <div className="flex items-center gap-1 bg-gray-50 border border-gray-100 p-1 rounded-xl">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={onViewOnMap}
               title="View on Map"
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-blue-600 hover:bg-white active:scale-95 transition-all cursor-pointer"
+              className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors cursor-pointer"
             >
-              <Eye size={15} />
+              <Eye size={14} />
             </button>
             <button
               onClick={onEdit}
               title="Edit Route"
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 hover:bg-white active:scale-95 transition-all cursor-pointer"
+              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
             >
               <Edit2 size={14} />
             </button>
             <button
               onClick={onDelete}
               title="Delete Route"
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-white active:scale-95 transition-all cursor-pointer"
+              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
             >
               <Trash2 size={14} />
             </button>

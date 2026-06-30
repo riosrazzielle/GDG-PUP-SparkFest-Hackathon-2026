@@ -64,97 +64,6 @@ async function connectDB() {
 
 // Seed helper function
 async function seedDatabase() {
-  const pinsCount = await db.collection('pins').countDocuments();
-  if (pinsCount === 0) {
-    const initialPins = [
-      {
-        type: 'flood', hazardLevel: 'life-threatening',
-        lat: 14.6299, lng: 120.9719,
-        title: 'Baha sa Tondo Market',
-        address: 'Tondo, Manila',
-        reportedBy: 'user123', timeAgo: '5 mins ago',
-        upvotes: 24,
-        description: 'Knee-deep floodwater near the public market. Road is completely impassable. Avoid this area.',
-        status: 'acknowledged', threadCount: 7
-      },
-      {
-        type: 'road-work', hazardLevel: 'needs-attention',
-        lat: 14.5794, lng: 120.9961,
-        title: 'Road construction at Quirino Ave',
-        address: 'Paco, Manila',
-        reportedBy: 'maryreyes', timeAgo: '23 mins ago',
-        upvotes: 12,
-        description: 'Ongoing road works causing single-lane traffic. Expect 20–30 minute delays.',
-        status: 'in-progress', threadCount: 3
-      },
-      {
-        type: 'fallen-pole', hazardLevel: 'urgent',
-        lat: 14.5786, lng: 120.9822,
-        title: 'Natumbang Poste, Ermita',
-        address: 'Ermita, Manila',
-        reportedBy: 'juandelacruz', timeAgo: '41 mins ago',
-        upvotes: 35,
-        description: "Electric pole down after last night's storm. Live wires on road. DANGER! Keep away.",
-        status: 'acknowledged', threadCount: 12
-      }
-    ];
-    await db.collection('pins').insertMany(initialPins);
-    console.log("Seeded initial pins data");
-  }
-
-
-  const reportsCount = await db.collection('reports').countDocuments();
-  if (reportsCount === 0) {
-    const initialReports = [
-      {
-        typeName: 'Flood', typeKey: 'flood',
-        moreDetails: 'Knee-deep near Tondo Market',
-        date: 'June 19, 2026', time: '10:29 AM',
-        location: 'Tondo, Manila',
-        status: 'confirmed'
-      }
-    ];
-    await db.collection('reports').insertMany(initialReports);
-    console.log("Seeded initial reports data");
-  }
-
-  const notificationsCount = await db.collection('notifications').countDocuments();
-  if (notificationsCount === 0) {
-    const initialNotifications = [
-      {
-        targetUser: 'juandelacruz',
-        type: 'new-report',
-        isNew: true,
-        title: 'Flood reported at Tondo Market',
-        subtitle: 'Tondo, Manila',
-        detail: 'Knee-deep floodwater near the public market entrance. Passable with care.',
-        timeAgo: '7 mins ago',
-        createdAt: new Date(Date.now() - 7 * 60 * 1000)
-      },
-      {
-        targetUser: 'juandelacruz',
-        type: 'reply',
-        isNew: true,
-        title: 'maryreyes replied to your comment',
-        subtitle: 'Natumbang Poste, Ermita',
-        detail: 'BFP is already on the way to clear the wires.',
-        timeAgo: '15 mins ago',
-        createdAt: new Date(Date.now() - 15 * 60 * 1000)
-      },
-      {
-        targetUser: 'juandelacruz',
-        type: 'upvote',
-        isNew: false,
-        title: '24 upvotes on your report',
-        subtitle: 'Natumbang Poste, Ermita',
-        detail: 'Your report has received 24 upvotes from the community.',
-        timeAgo: '1 hr ago',
-        createdAt: new Date(Date.now() - 60 * 60 * 1000)
-      }
-    ];
-    await db.collection('notifications').insertMany(initialNotifications);
-    console.log("Seeded initial notifications data");
-  }
 
   // Seed default admin account
   const adminExists = await db.collection('accounts').findOne({ username: 'admin' });
@@ -225,6 +134,7 @@ app.post('/api/pins', async (req, res) => {
       threadCount: 0,
       photo: req.body.photo || null,
       photos: req.body.photos || (req.body.photo ? [req.body.photo] : []),
+      radius: req.body.radius ? Number(req.body.radius) : undefined,
       createdAt: new Date()
     };
 
@@ -241,6 +151,7 @@ app.post('/api/pins', async (req, res) => {
       status: 'pending',
       photo: req.body.photo || null,
       photos: req.body.photos || (req.body.photo ? [req.body.photo] : []),
+      radius: req.body.radius ? Number(req.body.radius) : undefined,
       pinId: result.insertedId
     };
     await db.collection('reports').insertOne(userReport);

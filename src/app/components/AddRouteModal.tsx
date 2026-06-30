@@ -504,7 +504,20 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
       pos => {
         const { latitude: lat, longitude: lng } = pos.coords;
         setCurrentLatLng({ lat, lng });
-        setStartAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        
+        if (window.google?.maps?.Geocoder) {
+          const geocoder = new google.maps.Geocoder();
+          geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+            if (status === 'OK' && results && results[0]) {
+              setStartAddress(results[0].formatted_address);
+            } else {
+              setStartAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+            }
+          });
+        } else {
+          setStartAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        }
+        
         setStartPlace(null);
         setStartLatLng(null);
         setCalculatedRoutes([]);

@@ -125,7 +125,9 @@ function MapInner({ pins, activeRoute, onOpenDetail, onClearActiveRoute }: Props
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const circlesRef = useRef<google.maps.Circle[]>([]);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const activePinIdRef = useRef<string | null>(null);
   const routePolylineRef = useRef<google.maps.Polyline | null>(null);
   const [filter, setFilter] = useState<HazardFilter>('all');
   const [loaded, setLoaded] = useState(false);
@@ -147,8 +149,14 @@ function MapInner({ pins, activeRoute, onOpenDetail, onClearActiveRoute }: Props
           gestureHandling: 'greedy',
           clickableIcons: false,
         });
+        
+        map.addListener('click', () => {
+          if (infoWindowRef.current) infoWindowRef.current.close();
+          activePinIdRef.current = null;
+        });
+
         mapInstanceRef.current = map;
-        infoWindowRef.current = new google.maps.InfoWindow({ maxWidth: 240 });
+        infoWindowRef.current = new google.maps.InfoWindow({ maxWidth: 240, headerDisabled: true });
         if (!cancelled) setLoaded(true);
       })
       .catch((e: Error) => {
@@ -175,7 +183,9 @@ function MapInner({ pins, activeRoute, onOpenDetail, onClearActiveRoute }: Props
     if (!loaded || !map || !iw) return;
 
     markersRef.current.forEach(m => m.setMap(null));
+    circlesRef.current.forEach(c => c.setMap(null));
     markersRef.current = [];
+    circlesRef.current = [];
 
     const visible = filter === 'all' ? pins : pins.filter(p => p.hazardLevel === filter);
 
@@ -218,18 +228,58 @@ function MapInner({ pins, activeRoute, onOpenDetail, onClearActiveRoute }: Props
         zIndex: near ? 1000 : 100
       });
 
+      if (pin.radius) {
+        const circle = new google.maps.Circle({
+          map,
+          center: { lat: pin.lat, lng: pin.lng },
+          radius: pin.radius,
+          fillColor: bg,
+          fillOpacity: 0.15,
+          strokeColor: bg,
+          strokeOpacity: 0.4,
+          strokeWeight: 2,
+          clickable: false,
+          zIndex: 50
+        });
+        circlesRef.current.push(circle);
+      }
+
+      const CATEGORIES: Record<string, string> = {
+        'flood': 'Flood',
+        'traffic': 'Traffic',
+        'fallen-pole': 'Fallen Pole',
+        'car-crash': 'Car Crash',
+        'road-work': 'Road Work',
+        'fire': 'Fire',
+        'hazard': 'Road Hazard',
+        'other': 'Other'
+      };
+      
       marker.addListener('click', () => {
+        if (activePinIdRef.current === pin.id) {
+          iw.close();
+          activePinIdRef.current = null;
+          return;
+        }
+        activePinIdRef.current = pin.id;
         const div = document.createElement('div');
-        div.style.cssText = 'width:220px;display:flex;border-radius:10px;overflow:hidden;font-family:system-ui,sans-serif;';
+        div.style.cssText = 'width:240px;display:flex;border-radius:10px;overflow:hidden;font-family:system-ui,sans-serif;';
+        
+        const categoryName = CATEGORIES[pin.type] || pin.title;
+        const photoSrc = (pin.photos && pin.photos.length > 0) ? pin.photos[0] : pin.photo;
+        const imgHtml = photoSrc 
+          ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;" />` 
+          : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${bg}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>`;
+        
         div.innerHTML = `
-          <div style="width:56px;flex-shrink:0;background:${bg}22;display:flex;align-items:center;justify-content:center;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${bg}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>
+          <div style="width:72px;flex-shrink:0;background:${bg}22;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+            ${imgHtml}
           </div>
-          <div style="flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:2px;">
-            <div style="font-size:12px;font-weight:800;color:#111;line-height:1.3;">${pin.title}</div>
-            <div style="font-size:10px;color:#6b7280;">${pin.description.slice(0, 50)}…</div>
-            <div style="font-size:10px;color:#9ca3af;">by ${pin.reportedBy} · ${pin.timeAgo}</div>
-            <button id="vm-${pin.id}" style="margin-top:4px;align-self:flex-end;font-size:11px;font-weight:700;color:#1d4ed8;border:none;background:none;cursor:pointer;padding:0;">View more →</button>
+          <div style="flex:1;padding:6px 10px;display:flex;flex-direction:column;justify-content:center;">
+            <div style="font-size:12px;font-weight:800;color:#111;line-height:1.2;">${categoryName}</div>
+            <div style="font-size:10px;color:#6b7280;line-height:1.2;margin-top:2px;">${pin.description ? pin.description.slice(0, 50) + (pin.description.length > 50 ? '…' : '') : ''}</div>
+            <div style="font-size:9px;color:#9ca3af;margin-top:2px;">by ${pin.reportedBy} · ${pin.timeAgo}</div>
+            <button id="vm-${pin.id}" style="margin-top:2px;align-self:flex-end;font-size:11px;font-weight:700;color:#1d4ed8;border:none;background:none;cursor:pointer;padding:0;">View more →</button>
           </div>`;
 
         iw.setContent(div);
@@ -248,7 +298,9 @@ function MapInner({ pins, activeRoute, onOpenDetail, onClearActiveRoute }: Props
 
     return () => {
       markersRef.current.forEach(m => m.setMap(null));
+      circlesRef.current.forEach(c => c.setMap(null));
       markersRef.current = [];
+      circlesRef.current = [];
     };
   }, [loaded, pins, filter, onOpenDetail, activeRoute]);
 

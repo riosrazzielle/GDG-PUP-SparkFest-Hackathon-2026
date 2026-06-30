@@ -19,6 +19,7 @@ export interface MapPin {
   threadCount: number;
   photo?: string; // Kept for backwards compatibility
   photos?: string[];
+  radius?: number; // Affected area radius in meters
 }
 
 export interface SavedRoute {
@@ -90,6 +91,7 @@ export interface UserReport {
   time: string;
   location: string;
   status: ReportStatus;
+  radius?: number; // Affected area radius in meters
 }
 
 export type HazardFilter = 'all' | HazardLevel;

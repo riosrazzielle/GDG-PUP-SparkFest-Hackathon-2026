@@ -1,16 +1,70 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   X, Camera, Droplets, Car, Zap, Flame, HardHat, AlertCircle,
-  MapPin, Pencil, RotateCcw, CheckCircle, ImageIcon,
+  MapPin, Pencil, RotateCcw, CheckCircle, ImageIcon, Search,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { CameraView } from './CameraView';
 import { LocationPickerModal } from './LocationPickerModal';
 import type { UserReport } from '../types';
 
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyB2WFoRbVp3HPXHotn27e600KWnHJZZQ80';
+
+function PlacesInput({
+  placeholder,
+  value,
+  onChange,
+  onPlaceSelected,
+  placesReady,
+  className,
+}: {
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  onPlaceSelected: (place: google.maps.places.PlaceResult) => void;
+  placesReady: boolean;
+  className?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+  useEffect(() => {
+    if (!placesReady || !inputRef.current || autocompleteRef.current) return;
+
+    const ac = new google.maps.places.Autocomplete(inputRef.current, {
+      componentRestrictions: { country: 'ph' },
+      fields: ['formatted_address', 'geometry', 'name'],
+    });
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (place?.formatted_address) {
+        onChange(place.formatted_address);
+        onPlaceSelected(place);
+      } else if (place?.name) {
+        onChange(place.name);
+      }
+    });
+    autocompleteRef.current = ac;
+  }, [placesReady]);
+
+  return (
+    <div className="relative">
+      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={className || "w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-[12px] text-black bg-gray-50 placeholder-gray-400 focus:outline-none focus:border-gray-400 transition-colors"}
+      />
+    </div>
+  );
+}
+
 interface Props {
   onClose: () => void;
-  onSubmit: (reportData: { type: string; address: string; description: string; lat: number; lng: number; photos?: string[] }) => void;
+  onSubmit: (reportData: { type: string; address: string; description: string; lat: number; lng: number; photos?: string[]; radius?: number }) => void;
   initialData?: UserReport;
 }
 
@@ -82,23 +136,41 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [isLocating, setIsLocating] = useState(true);
+  const [placesReady, setPlacesReady] = useState(false);
+  const [radius, setRadius] = useState<number>(initialData?.radius || 50);
 
   useEffect(() => {
-    // If we are editing, we don't automatically override location with current location
-    if (initialData) {
-      setIsLocating(false);
-      return;
-    }
+    let cancelled = false;
+    setOptions({ apiKey: GOOGLE_MAPS_API_KEY, version: 'weekly' });
+    Promise.all([importLibrary('maps'), importLibrary('places'), importLibrary('geocoding')]).then(() => {
+      if (!cancelled) setPlacesReady(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
+  const detectLocation = () => {
     if ('geolocation' in navigator) {
+      setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-          setAddress('Current Location');
-          setIsLocating(false);
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setUserLocation({ lat, lng });
+          
+          if (window.google?.maps?.Geocoder) {
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+              if (status === 'OK' && results && results[0]) {
+                setAddress(results[0].formatted_address);
+              } else {
+                setAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+              }
+              setIsLocating(false);
+            });
+          } else {
+            setAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+            setIsLocating(false);
+          }
         },
         (error) => {
           console.error("Error getting location:", error);
@@ -106,9 +178,16 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
-    } else {
-      setIsLocating(false);
     }
+  };
+
+  useEffect(() => {
+    // If we are editing, we don't automatically override location with current location
+    if (initialData) {
+      setIsLocating(false);
+      return;
+    }
+    detectLocation();
   }, [initialData]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,8 +214,9 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
         description,
         lat,
         lng,
-        photos
-      } as any); // using any to bypass strict type check here, will update App.tsx
+        photos,
+        radius
+      });
     }, 1800);
   };
 
@@ -203,17 +283,32 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
                   </div>
                   {/* Controls */}
                   <div className="flex-1 flex flex-col gap-2">
-                    <div className="flex items-center gap-1.5 text-[12px] text-gray-500">
-                      <MapPin size={12} className={isLocating ? "text-blue-500 animate-pulse" : "text-gray-400"} />
-                      <span>
-                        {isLocating ? "Detecting location..." : userLocation ? "Using current location" : "Could not detect location"}
-                      </span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[12px] text-gray-500">
+                        <MapPin size={12} className={isLocating ? "text-blue-500 animate-pulse" : "text-gray-400"} />
+                        <span>
+                          {isLocating ? "Detecting location..." : userLocation ? "Using current location" : "Could not detect location"}
+                        </span>
+                      </div>
+                      <button 
+                        onClick={detectLocation}
+                        disabled={isLocating}
+                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                      >
+                        Use current location
+                      </button>
                     </div>
-                    <input
+                    
+                    <PlacesInput
+                      placeholder="Search location..."
                       value={address}
-                      onChange={e => setAddress(e.target.value)}
-                      placeholder="Manual Address (e.g., pole ID, corner...)"
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-[12px] text-black bg-gray-50 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+                      onChange={setAddress}
+                      onPlaceSelected={(place) => {
+                        if (place.geometry?.location) {
+                          setUserLocation({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() });
+                        }
+                      }}
+                      placesReady={placesReady}
                     />
                   </div>
                 </div>
@@ -294,27 +389,7 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
                 />
               </div>
 
-              {/* ── Affected Area ── */}
-              <div>
-                <SectionLabel>Affected Area</SectionLabel>
-                <div className="flex gap-3 items-stretch">
-                  {/* Tool buttons */}
-                  <div className="flex flex-col gap-2">
-                    <button className="w-11 h-11 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center">
-                      <Pencil size={16} className="text-gray-600" />
-                    </button>
-                    <button className="w-11 h-11 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center">
-                      <RotateCcw size={16} className="text-gray-600" />
-                    </button>
-                  </div>
-                  {/* Map preview */}
-                  <div className="flex-1 rounded-xl overflow-hidden border border-gray-200" style={{ height: 96 }}>
-                    <SmallMapPreview showBluePin />
-                  </div>
-                </div>
-              </div>
 
-              {/* Spacer so submit button doesn't cover last field */}
               <div className="h-2" />
             </div>
 
@@ -322,8 +397,9 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
             <div className="px-4 pt-2 pb-6 bg-white border-t border-gray-100">
               <button
                 onClick={handleSubmit}
-                className="w-full py-4 rounded-2xl text-white text-[16px] font-bold active:opacity-90 transition-opacity"
-                style={{ backgroundColor: '#1d4ed8' }}
+                disabled={!address.trim() || !description.trim() || photos.length === 0 || !category.trim()}
+                className="w-full py-4 rounded-2xl text-white text-[16px] font-bold active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ backgroundColor: (!address.trim() || !description.trim() || photos.length === 0 || !category.trim()) ? '#9ca3af' : '#1d4ed8' }}
               >
                 {initialData ? 'Save Changes' : 'Submit Report'}
               </button>
@@ -348,10 +424,12 @@ export function AddReportModal({ onClose, onSubmit, initialData }: Props) {
         {isMapPickerOpen && (
           <LocationPickerModal
             initialLocation={userLocation}
+            initialRadius={radius}
             onClose={() => setIsMapPickerOpen(false)}
-            onConfirm={(loc, addr) => {
+            onConfirm={(loc, addr, rad) => {
               setUserLocation(loc);
               setAddress(addr);
+              if (rad !== undefined) setRadius(rad);
               setIsMapPickerOpen(false);
             }}
           />

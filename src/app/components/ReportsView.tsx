@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Plus, MoreHorizontal } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileText, MapPin } from 'lucide-react';
 import { LandscapeThumb } from './LandscapeThumb';
 import type { UserReport } from '../types';
 
@@ -28,66 +27,62 @@ function ReportCard({
   onEdit?: () => void, 
   onDelete?: () => void 
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const isResolved = report.status === 'resolved';
   const displayStatus = isResolved ? 'Resolved' : 'Active';
   const activeStyle = isResolved ? statusStyle.resolved : statusStyle.pending;
 
+  const CATEGORIES: Record<string, string> = {
+    'flood': 'Flood',
+    'traffic': 'Traffic',
+    'fallen-pole': 'Fallen Pole',
+    'car-crash': 'Car Crash',
+    'road-work': 'Road Work',
+    'fire': 'Fire',
+    'hazard': 'Road Hazard',
+    'other': 'Other'
+  };
+  const categoryName = report.typeKey ? CATEGORIES[report.typeKey] || report.typeName : report.typeName;
+
   return (
     <div className="bg-white border border-gray-200 rounded-2xl px-3.5 py-3 mb-3 shadow-sm relative">
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         {report.photo || (report.photos && report.photos.length > 0) ? (
           <img src={report.photos?.[0] || report.photo} alt="Thumbnail" className="w-[72px] h-[72px] rounded-xl object-cover" />
         ) : (
           <LandscapeThumb className="w-[72px] h-[72px] rounded-xl" />
         )}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col justify-between" style={{ minHeight: '72px' }}>
           <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-bold text-gray-900">{report.typeName}</p>
-              <p className="text-[12px] text-gray-500">{report.moreDetails}</p>
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <p className="text-[14px] font-bold text-gray-900 truncate">{categoryName}</p>
+              <span className={`flex-shrink-0 text-[10px] font-bold border rounded-full px-2 py-0.5 leading-none ${activeStyle}`}>
+                {displayStatus}
+              </span>
             </div>
-            <span className={`flex-shrink-0 text-[11px] font-bold border rounded-full px-2.5 py-0.5 ${activeStyle}`}>
-              {displayStatus}
-            </span>
-          </div>
-          <p className="text-[11px] text-gray-500 mt-1">{report.date}</p>
-          <p className="text-[11px] text-gray-500">{report.time}</p>
-          <div className="flex items-center justify-between mt-0.5">
-            <p className="text-[11px] text-gray-400 truncate flex-1">{report.location}</p>
-            
             {report.status === 'pending' && (
-              <div className="relative">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button 
-                  className="text-gray-400 pl-2 cursor-pointer hover:text-gray-600" 
-                  onClick={() => setMenuOpen(!menuOpen)}
+                  onClick={onEdit}
+                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                  title="Edit Report"
                 >
-                  <MoreHorizontal size={16} />
+                  <Pencil size={14} />
                 </button>
-                {menuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)}></div>
-                    <div className="absolute right-0 bottom-full mb-1 w-32 bg-white border border-gray-100 shadow-lg rounded-xl overflow-hidden z-50">
-                      <button 
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 font-medium"
-                        onClick={() => { setMenuOpen(false); onEdit?.(); }}
-                      >
-                        Edit Report
-                      </button>
-                      <button 
-                        className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium border-t border-gray-100"
-                        onClick={() => { setMenuOpen(false); onDelete?.(); }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </>
-                )}
+                <button 
+                  onClick={onDelete}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                  title="Delete Report"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             )}
-            {report.status !== 'pending' && (
-              <div className="text-gray-400 pl-2 opacity-0"><MoreHorizontal size={16} /></div>
-            )}
+          </div>
+          <p className="text-[12px] text-gray-500 truncate">{report.moreDetails}</p>
+          <p className="text-[11px] text-gray-500 font-medium">{report.date} <span className="text-gray-300 mx-1">|</span> {report.time}</p>
+          <div className="flex items-center gap-1.5">
+            <MapPin size={12} className="text-gray-400 flex-shrink-0" />
+            <p className="text-[11px] text-gray-400 truncate flex-1">{report.location}</p>
           </div>
         </div>
       </div>
@@ -98,27 +93,36 @@ function ReportCard({
 export function ReportsView({ reports, onAddReport, onEditReport, onDeleteReport }: Props) {
   return (
     <div className="absolute inset-0 bg-gray-50 z-40 flex flex-col">
-      <div className="px-4 pt-5 pb-3 bg-white border-b border-gray-100">
+      <div className="px-4 pt-5 pb-3 bg-white border-b border-gray-100 flex-shrink-0">
         <h2 className="text-[20px] font-extrabold text-gray-900">My Reports</h2>
+        <p className="text-[12px] text-gray-400 mt-0.5">{reports.length} report{reports.length !== 1 ? 's' : ''} submitted</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24">
-        {reports.map(r => (
-          <ReportCard 
-            key={r.id} 
-            report={r} 
-            onEdit={() => onEditReport?.(r)}
-            onDelete={() => onDeleteReport?.(r.id, r.pinId)}
-          />
-        ))}
+        {reports.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center py-16">
+            <FileText size={36} className="text-gray-300 mb-3" />
+            <p className="text-[14px] font-bold text-gray-400">No reports submitted</p>
+            <p className="text-[12px] text-gray-400 mt-1">Tap + to report your first hazard</p>
+          </div>
+        ) : (
+          reports.map(r => (
+            <ReportCard 
+              key={r.id} 
+              report={r} 
+              onEdit={() => onEditReport?.(r)}
+              onDelete={() => onDeleteReport?.(r.id, r.pinId)}
+            />
+          ))
+        )}
       </div>
 
       <button
         onClick={onAddReport}
-        className="absolute bottom-6 right-5 h-14 px-6 bg-black text-white rounded-full shadow-xl flex items-center justify-center transition-all duration-300 ease-in-out active:scale-95 cursor-pointer gap-2"
+        className="group absolute bottom-6 right-5 h-14 w-14 hover:w-auto hover:px-5 bg-black text-white rounded-full shadow-xl flex items-center justify-center transition-all duration-300 ease-in-out active:scale-95 cursor-pointer overflow-hidden"
       >
-        <span className="font-extrabold text-[14px] tracking-wide whitespace-nowrap">
-          Add Report
+        <span className="font-extrabold text-[13px] tracking-wide whitespace-nowrap overflow-hidden max-w-0 opacity-0 group-hover:max-w-[150px] group-hover:opacity-100 group-hover:mr-1.5 transition-all duration-300 ease-in-out">
+          Add New Report
         </span>
         <Plus size={20} className="flex-shrink-0" />
       </button>

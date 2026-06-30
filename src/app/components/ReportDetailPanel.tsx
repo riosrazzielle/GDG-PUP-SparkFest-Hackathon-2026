@@ -124,6 +124,18 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
   const hazardColor = HAZARD_COLORS[hazardLvl as HazardLevel] || HAZARD_COLORS['needs-attention'];
   const { bg, label: hazardLabel } = hazardColor;
   const { label: statusLabel, Icon: StatusIcon, color: statusColor } = statusConfig[pinStatus];
+
+  const CATEGORIES: Record<string, string> = {
+    'flood': 'Flood',
+    'traffic': 'Traffic',
+    'fallen-pole': 'Fallen Pole',
+    'car-crash': 'Car Crash',
+    'road-work': 'Road Work',
+    'fire': 'Fire',
+    'hazard': 'Road Hazard',
+    'other': 'Other'
+  };
+  const categoryName = CATEGORIES[pin.type] || pin.title;
   
   const allPhotos = pin.photos?.length ? pin.photos : (pin.photo ? [pin.photo] : []);
   const heroPhoto = allPhotos[0] || null;
@@ -313,8 +325,8 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
       <div className="flex-1 overflow-y-auto">
         <div className="px-4 pt-4 pb-8">
           {/* Title */}
-          <h2 className="text-[18px] font-extrabold text-gray-900 leading-snug mb-1">{pin.title}</h2>
-          <p className="text-[13px] text-gray-500 mb-3">{pin.description.slice(0, 80)}…</p>
+          <h2 className="text-[18px] font-extrabold text-gray-900 leading-snug mb-1">{categoryName}</h2>
+          <p className="text-[14px] text-gray-700 leading-relaxed mb-4">{pin.description}</p>
 
           {/* Reporter row */}
           <div className="flex items-center gap-2 mb-4">
@@ -360,9 +372,7 @@ export function ReportDetailPanel({ pin, onClose, currentUser, onCommentAdded, o
             <p className="text-[13px] text-gray-700">{pin.address}</p>
           </div>
 
-          {/* Details section */}
-          <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">Details</p>
-          <p className="text-[14px] text-gray-700 leading-relaxed mb-4">{pin.description}</p>
+
 
           {/* Combined reports note */}
           {pin.threadCount > 1 && (
