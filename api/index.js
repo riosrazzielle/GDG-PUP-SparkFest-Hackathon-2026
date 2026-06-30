@@ -36,7 +36,7 @@ let client;
 
 async function connectDB() {
   if (db) return db; // reuse connection if already connected
-  
+
   if (!MONGODB_URI) {
     throw new Error("MONGODB_URI is not configured in Vercel Environment Variables");
   }
@@ -49,7 +49,7 @@ async function connectDB() {
     await client.connect();
     db = client.db('bantaybayan');
     console.log("Successfully connected to MongoDB");
-    
+
     // Seed initial data if collections are empty
     await seedDatabase();
     return db;
@@ -139,7 +139,7 @@ app.post('/api/pins', async (req, res) => {
     };
 
     const result = await db.collection('pins').insertOne(newPin);
-    
+
     // Also save as user's report history
     const userReport = {
       typeName: req.body.title || 'Reported Hazard',
@@ -152,7 +152,8 @@ app.post('/api/pins', async (req, res) => {
       photo: req.body.photo || null,
       photos: req.body.photos || (req.body.photo ? [req.body.photo] : []),
       radius: req.body.radius ? Number(req.body.radius) : undefined,
-      pinId: result.insertedId
+      pinId: result.insertedId,
+      reportedBy: req.body.reportedBy || 'anonymous'
     };
     await db.collection('reports').insertOne(userReport);
 
@@ -164,6 +165,7 @@ app.post('/api/pins', async (req, res) => {
           targetUser: acc.username,
           type: 'new-report',
           isNew: true,
+          pinId: result.insertedId.toString(),
           title: `New ${req.body.title || 'hazard'} reported nearby`,
           subtitle: req.body.address || 'Nearby location',
           detail: req.body.description || 'Be careful while traveling through this area.',
@@ -183,7 +185,7 @@ app.post('/api/pins', async (req, res) => {
 app.put('/api/pins/:id/edit', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const pinUpdate = {
       type: req.body.type,
       title: req.body.title || 'Reported Hazard',
@@ -207,7 +209,7 @@ app.put('/api/pins/:id/edit', async (req, res) => {
     // Also update the associated report
     await db.collection('reports').updateOne(
       { pinId: new ObjectId(id) },
-      { 
+      {
         $set: {
           typeKey: req.body.type,
           typeName: req.body.title || 'Reported Hazard',
@@ -237,10 +239,10 @@ app.delete('/api/pins/:id', async (req, res) => {
 
     // Also delete the associated report
     await db.collection('reports').deleteOne({ pinId: new ObjectId(id) });
-    
+
     // Also delete associated comments
     await db.collection('comments').deleteMany({ pinId: id });
-    
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -287,6 +289,24 @@ app.post('/api/pins/:id/upvote', async (req, res) => {
   }
 });
 
+// Unupvote a pin
+app.post('/api/pins/:id/unupvote', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.collection('pins').findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $inc: { upvotes: -1 } },
+      { returnDocument: 'after' }
+    );
+    if (!result) {
+      return res.status(404).json({ error: "Pin not found" });
+    }
+    res.json({ id: result._id.toString(), upvotes: result.upvotes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /* ==========================================================================
    ROUTES ENDPOINTS (/api/routes)
    ========================================================================== */
@@ -313,6 +333,7 @@ app.post('/api/routes', async (req, res) => {
       duration: req.body.duration,
       lastEdited: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       nearbyReports: req.body.nearbyReports || 0,
+      travelMode: req.body.travelMode,
       routePath: req.body.routePath || []
     };
     const result = await db.collection('routes').insertOne(newRoute);
@@ -348,6 +369,7 @@ app.put('/api/routes/:id', async (req, res) => {
       duration: req.body.duration,
       lastEdited: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       nearbyReports: req.body.nearbyReports || 0,
+      travelMode: req.body.travelMode,
       routePath: req.body.routePath || [],
     };
     const result = await db.collection('routes').findOneAndUpdate(
@@ -367,12 +389,52 @@ app.put('/api/routes/:id', async (req, res) => {
    REPORTS ENDPOINTS (/api/reports)
    ========================================================================== */
 
-// Get all user reports
+// Get all user reports (filtered by username if specified)
 app.get('/api/reports', async (req, res) => {
   try {
-    const reports = await db.collection('reports').find({}).toArray();
+    const { username } = req.query;
+    let query = {};
+    if (username) {
+      // Find pin IDs reported by this user to fetch associated reports
+      const userPins = await db.collection('pins').find({ reportedBy: username }).toArray();
+      const pinIds = userPins.map(p => p._id);
+      
+      query = {
+        $or: [
+          { reportedBy: username },
+          { pinId: { $in: pinIds } }
+        ]
+      };
+    }
+    const reports = await db.collection('reports').find(query).toArray();
     const formatted = reports.map(r => ({ ...r, id: r._id.toString() }));
     res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a report (and its associated pin and comments if it exists)
+app.delete('/api/reports/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find the report first
+    const report = await db.collection('reports').findOne({ _id: new ObjectId(id) });
+    if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    
+    // Delete the report
+    await db.collection('reports').deleteOne({ _id: new ObjectId(id) });
+    
+    // If it has a pinId, delete the pin and comments
+    if (report.pinId) {
+      await db.collection('pins').deleteOne({ _id: new ObjectId(report.pinId) });
+      await db.collection('comments').deleteMany({ pinId: report.pinId.toString() });
+    }
+    
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -432,7 +494,7 @@ app.post('/api/accounts/profile', async (req, res) => {
           account.password = password;
         }
       }
-      
+
       // Ensure defaults exist for existing accounts
       account.id = account._id.toString();
       account.displayName = account.displayName || account.username;
@@ -487,23 +549,23 @@ app.put('/api/accounts/profile', async (req, res) => {
 app.post('/api/accounts/create-authority', async (req, res) => {
   try {
     const { adminUsername, username, displayName, password, role, governmentCategory } = req.body;
-    
+
     // Check if requester is admin
     const requester = await db.collection('accounts').findOne({ username: adminUsername, role: 'admin' });
     if (!requester) {
       return res.status(200).json({ error: "Only admins can create authority/LGU accounts." });
     }
-    
+
     const cleanUsername = username.toLowerCase().replace(/\s+/g, '').trim();
     const existing = await db.collection('accounts').findOne({ username: cleanUsername });
     if (existing) {
       return res.status(200).json({ error: "Username already taken." });
     }
-    
+
     if (!['authority', 'lgu'].includes(role)) {
       return res.status(200).json({ error: "Invalid role. Must be 'authority' or 'lgu'." });
     }
-    
+
     const newAccount = {
       username: cleanUsername,
       displayName: displayName || cleanUsername.charAt(0).toUpperCase() + cleanUsername.slice(1),
@@ -523,7 +585,7 @@ app.post('/api/accounts/create-authority', async (req, res) => {
         upvotesOnPost: true
       }
     };
-    
+
     const result = await db.collection('accounts').insertOne(newAccount);
     newAccount.id = result.insertedId.toString();
     res.status(201).json(newAccount);
@@ -558,18 +620,18 @@ app.put('/api/pins/:id/status', async (req, res) => {
     if (!user || !['authority', 'lgu', 'admin'].includes(user.role)) {
       return res.status(200).json({ error: "Access denied. Only authorities or LGU responders can change status." });
     }
-    
+
     if (!['pending', 'acknowledged', 'in-progress', 'resolved'].includes(status)) {
       return res.status(200).json({ error: "Invalid status value" });
     }
-    
+
     const pin = await db.collection('pins').findOneAndUpdate(
       { _id: new ObjectId(id) },
       { $set: { status } },
       { returnDocument: 'after' }
     );
     if (!pin) return res.status(200).json({ error: "Pin not found" });
-    
+
     // Also update corresponding reports collection status
     await db.collection('reports').updateMany(
       { pinId: new ObjectId(id) },
@@ -687,7 +749,7 @@ app.post('/api/pins/:id/comments', async (req, res) => {
       newComment.parentId = parentId;
     }
     const result = await db.collection('comments').insertOne(newComment);
-    
+
     // Increment threadCount on pin
     await db.collection('pins').updateOne(
       { _id: new ObjectId(id) },
@@ -696,7 +758,7 @@ app.post('/api/pins/:id/comments', async (req, res) => {
 
     // Get the pin author to notify them
     const pin = await db.collection('pins').findOne({ _id: new ObjectId(id) });
-    
+
     // If it's a nested reply, notify the parent comment's author
     if (parentId) {
       const parentComment = await db.collection('comments').findOne({ _id: new ObjectId(parentId) });
@@ -707,6 +769,7 @@ app.post('/api/pins/:id/comments', async (req, res) => {
             targetUser: parentComment.author,
             type: 'reply',
             isNew: true,
+            pinId: id,
             title: `@${author} replied to your comment`,
             subtitle: pin ? pin.title : 'Report Details',
             detail: content,
@@ -723,6 +786,7 @@ app.post('/api/pins/:id/comments', async (req, res) => {
           targetUser: pin.reportedBy,
           type: 'reply',
           isNew: true,
+          pinId: id,
           title: `@${author} commented on your report`,
           subtitle: pin.title,
           detail: content,
@@ -742,6 +806,7 @@ app.post('/api/pins/:id/comments', async (req, res) => {
           targetUser: commenter,
           type: 'reply',
           isNew: true,
+          pinId: id,
           title: `@${author} replied to a thread you commented on`,
           subtitle: pin ? pin.title : 'Report Details',
           detail: content,
@@ -762,7 +827,7 @@ app.post('/api/comments/:id/action', async (req, res) => {
   try {
     const { id } = req.params;
     const { action, username, reason, details } = req.body; // 'upvote', 'downvote', 'flag'
-    
+
     if (!username) return res.status(400).json({ error: "Username required" });
 
     const comment = await db.collection('comments').findOne({ _id: new ObjectId(id) });
@@ -815,8 +880,62 @@ app.post('/api/comments/:id/action', async (req, res) => {
       { $set: { upvotedBy, downvotedBy, flaggedBy, flagReports, upvotes, downvotes, flags } },
       { returnDocument: 'after' }
     );
-    
+
     res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin deletes an authority/LGU account
+app.delete('/api/accounts/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminUsername } = req.body;
+
+    // Verify requester is admin
+    const requester = await db.collection('accounts').findOne({ username: adminUsername, role: 'admin' });
+    if (!requester) {
+      return res.status(200).json({ error: 'Only admins can delete accounts.' });
+    }
+
+    // Prevent deleting the admin account itself
+    const target = await db.collection('accounts').findOne({ _id: new ObjectId(id) });
+    if (!target) return res.status(404).json({ error: 'Account not found.' });
+    if (target.role === 'admin') return res.status(200).json({ error: 'Cannot delete the admin account.' });
+
+    await db.collection('accounts').deleteOne({ _id: new ObjectId(id) });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin edits an authority/LGU account
+app.put('/api/accounts/:id/admin-edit', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminUsername, displayName, password, governmentCategory, role } = req.body;
+
+    // Verify requester is admin
+    const requester = await db.collection('accounts').findOne({ username: adminUsername, role: 'admin' });
+    if (!requester) {
+      return res.status(200).json({ error: 'Only admins can edit accounts.' });
+    }
+
+    const updateData = {};
+    if (displayName !== undefined) updateData.displayName = displayName;
+    if (password !== undefined && password.trim() !== '') updateData.password = password.trim();
+    if (governmentCategory !== undefined) updateData.governmentCategory = governmentCategory;
+    if (role !== undefined) updateData.role = role;
+
+    const result = await db.collection('accounts').findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: updateData },
+      { returnDocument: 'after' }
+    );
+    if (!result) return res.status(404).json({ error: 'Account not found.' });
+    res.json({ ...result, id: result._id.toString() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import type { SavedRoute, MapPin, HazardLevel } from '../types';
 import { HAZARD_COLORS, reportSvgPaths } from '../types';
+import { PanelHeader } from './PanelHeader';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyB2WFoRbVp3HPXHotn27e600KWnHJZZQ80';
 
@@ -260,6 +261,7 @@ function RoutePreviewMap({
   travelMode,
   placesReady,
   pins,
+  selectedRouteIndex,
 }: {
   startAddress: string;
   destAddress: string;
@@ -272,6 +274,7 @@ function RoutePreviewMap({
   travelMode: string;
   placesReady: boolean;
   pins: MapPin[];
+  selectedRouteIndex: number;
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -279,6 +282,7 @@ function RoutePreviewMap({
   const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const [mapsLoaded, setMapsLoaded] = useState(false);
+  const lastResultRef = useRef<google.maps.DirectionsResult | null>(null);
 
   useEffect(() => {
     if (!placesReady || !mapRef.current) return;
@@ -306,7 +310,7 @@ function RoutePreviewMap({
         suppressMarkers: false,
       });
       directionsRendererRef.current = directionsRenderer;
-      
+
       setMapsLoaded(true);
     });
 
@@ -319,7 +323,7 @@ function RoutePreviewMap({
 
   useEffect(() => {
     if (!mapsLoaded || !mapInstanceRef.current || !placesReady) return;
-    
+
     // Clear old markers
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
@@ -331,7 +335,7 @@ function RoutePreviewMap({
         const hazardColor = HAZARD_COLORS[hazardLvl as HazardLevel] || HAZARD_COLORS['needs-attention'];
         const { bg } = hazardColor;
         const path = reportSvgPaths[pin.type] ?? reportSvgPaths['other'];
-        
+
         // Build SVG data-URL icon
         const svgStr = [
           `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44">`,
@@ -389,6 +393,7 @@ function RoutePreviewMap({
     }
 
     if (!origin || !destination) {
+      lastResultRef.current = null;
       directionsRendererRef.current.setDirections({ routes: [] } as any);
       return;
     }
@@ -406,11 +411,15 @@ function RoutePreviewMap({
         origin,
         destination,
         travelMode: gmTravelMode,
+        provideRouteAlternatives: true,
       },
       (result, status) => {
         if (status === google.maps.DirectionsStatus.OK && result && directionsRendererRef.current) {
+          lastResultRef.current = result;
           directionsRendererRef.current.setDirections(result);
+          directionsRendererRef.current.setRouteIndex(selectedRouteIndex || 0);
         } else {
+          lastResultRef.current = null;
           directionsRendererRef.current?.setDirections({ routes: [] } as any);
         }
       }
@@ -428,6 +437,12 @@ function RoutePreviewMap({
     travelMode,
     mapsLoaded,
   ]);
+
+  useEffect(() => {
+    if (directionsRendererRef.current && lastResultRef.current) {
+      directionsRendererRef.current.setRouteIndex(selectedRouteIndex || 0);
+    }
+  }, [selectedRouteIndex]);
 
   return (
     <div className="relative w-full h-48 rounded-2xl border border-gray-200 overflow-hidden bg-gray-50 mb-3 shadow-inner">
@@ -488,23 +503,23 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
 
   const hasValidDest = !!(destPlace || destLatLng) || (isEditMode && destAddress.trim());
 
-  const canSave = hasValidStart && hasValidDest;
+  const canSave = hasValidStart && hasValidDest && routeName.trim().length > 0;
 
 
 
   /* GPS current location */
   useEffect(() => {
-    if (!useCurrentLocation) { 
+    if (!useCurrentLocation) {
       // Only wipe startAddress if we were previously using current location
       if (currentLatLng) setStartAddress('');
-      setCurrentLatLng(null); 
-      return; 
+      setCurrentLatLng(null);
+      return;
     }
     navigator.geolocation?.getCurrentPosition(
       pos => {
         const { latitude: lat, longitude: lng } = pos.coords;
         setCurrentLatLng({ lat, lng });
-        
+
         if (window.google?.maps?.Geocoder) {
           const geocoder = new google.maps.Geocoder();
           geocoder.geocode({ location: { lat, lng } }, (results, status) => {
@@ -517,7 +532,7 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
         } else {
           setStartAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
         }
-        
+
         setStartPlace(null);
         setStartLatLng(null);
         setCalculatedRoutes([]);
@@ -641,7 +656,7 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
       const lastEdited = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
       const fromLabel = useCurrentLocation
-        ? 'Current Location'
+        ? (startAddress.trim() || 'Current Location')
         : startLatLng
           ? startAddress || 'Pinned Start'
           : (startPlace?.name ?? startPlace?.formatted_address ?? startAddress);
@@ -683,7 +698,8 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-      className="absolute inset-0 bg-white z-50 flex flex-col"
+      className="absolute inset-0 z-50 flex flex-col"
+      style={{ background: '#B8DCE8' }}
     >
       <AnimatePresence mode="wait">
         {saved ? (
@@ -709,35 +725,40 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
           /* ── Form ── */
           <motion.div key="form" className="flex-1 flex flex-col overflow-hidden">
 
-            {/* Header */}
-            <div className="relative flex items-center justify-center px-4 pt-5 pb-3 border-b border-gray-100 flex-shrink-0">
-              <h1 className="text-[20px] font-extrabold text-gray-900">{isEditMode ? 'Edit Route' : 'New Route'}</h1>
-              <button
-                onClick={onClose}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
+            <PanelHeader
+              title={isEditMode ? 'Edit Route' : 'New Route'}
+              onBack={onClose}
+              bg="#B8DCE8"
+              rightAction={
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-full bg-white/60 flex items-center justify-center text-gray-600 active:scale-95 transition-transform cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              }
+            />
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+            <div className="flex-1 overflow-y-auto px-4 pt-4 pb-36 space-y-5">
 
               {/* Route Name */}
               <div>
-                <SectionLabel>Route Name</SectionLabel>
-                <input
-                  value={routeName}
-                  onChange={e => setRouteName(e.target.value)}
-                  placeholder="e.g., Home → Work"
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-[13px] text-black bg-gray-50 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
-                />
+                <SectionLabel>Route Name <span style={{ color: '#ef4444' }}>*</span></SectionLabel>
+                <div className="flex items-center bg-white rounded-xl px-3.5 py-3 border border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all relative">
+                  <input
+                    value={routeName}
+                    onChange={e => setRouteName(e.target.value)}
+                    placeholder="e.g., Home → Work"
+                    className="flex-1 text-[13px] text-gray-900 font-medium focus:outline-none bg-transparent"
+                  />
+                </div>
               </div>
 
               {/* ── Route Points (Compact Connector Layout) ── */}
               <div>
-                <SectionLabel>Route Points</SectionLabel>
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 flex gap-3 relative shadow-inner">
+                <SectionLabel>Route Points <span style={{ color: '#ef4444' }}>*</span></SectionLabel>
+                <div className="bg-white/40 border border-white/60 rounded-2xl p-3 flex gap-3 relative">
                   {/* Visual timeline connector */}
                   <div className="flex flex-col items-center justify-between py-3 flex-shrink-0">
                     <div className="w-2.5 h-2.5 rounded-full border border-green-500 bg-white flex items-center justify-center">
@@ -760,7 +781,7 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
                         onPlaceSelected={p => { setStartPlace(p); setStartLatLng(null); setUseCurrentLocation(false); }}
                         disabled={useCurrentLocation}
                         placesReady={placesReady}
-                        className="w-full border border-gray-200 rounded-xl pl-3 pr-20 py-2.5 text-[12px] text-black bg-white placeholder-gray-400 focus:outline-none focus:border-blue-400 transition-colors disabled:opacity-50"
+                        className="w-full bg-white rounded-xl pl-3 pr-20 py-2.5 text-[13px] text-gray-900 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium disabled:opacity-50"
                       />
                       <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         <button
@@ -796,7 +817,7 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
                         onChange={v => { setDestAddress(v); setDestLatLng(null); }}
                         onPlaceSelected={p => { setDestPlace(p); setDestLatLng(null); }}
                         placesReady={placesReady}
-                        className="w-full border border-gray-200 rounded-xl pl-3 pr-10 py-2.5 text-[12px] text-black bg-white placeholder-gray-400 focus:outline-none focus:border-blue-400 transition-colors"
+                        className="w-full bg-white rounded-xl pl-3 pr-10 py-2.5 text-[13px] text-gray-900 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium"
                       />
                       <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
                         <button
@@ -831,6 +852,7 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
                 travelMode={travelMode}
                 placesReady={placesReady}
                 pins={pins}
+                selectedRouteIndex={selectedRouteIndex}
               />
 
               {/* Route Options */}
@@ -921,12 +943,16 @@ export function AddRouteModal({ onClose, onSave, pins, editRoute }: Props) {
             </div>
 
             {/* Save button */}
-            <div className="px-4 pt-2 pb-6 bg-white border-t border-gray-100 flex-shrink-0">
+            <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 pt-3">
               <button
                 onClick={handleSave}
                 disabled={saving || !canSave}
-                className="w-full py-4 rounded-2xl text-white text-[16px] font-bold active:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: '#1d4ed8' }}
+                className="w-full py-4 rounded-2xl text-white text-[16px] font-bold transition-all flex items-center justify-center gap-2 shadow-lg"
+                style={{
+                  backgroundColor: (!saving && canSave) ? '#2563EB' : '#A0AEC0',
+                  cursor: (!saving && canSave) ? 'pointer' : 'not-allowed',
+                  opacity: (!saving && canSave) ? 1 : 0.7,
+                }}
               >
                 {saving
                   ? <><Loader2 size={18} className="animate-spin" /> Calculating Route…</>

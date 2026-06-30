@@ -5,6 +5,7 @@ interface Props {
   activePanel: AppPanel;
   onSelect: (panel: AppPanel) => void;
   unreadCount: number;
+  userRole?: string;
 }
 
 const tabs: { key: AppPanel; Icon: React.ElementType; label: string }[] = [
@@ -14,7 +15,10 @@ const tabs: { key: AppPanel; Icon: React.ElementType; label: string }[] = [
   { key: 'profile', Icon: User, label: 'Profile' },
 ];
 
-export function BottomNav({ activePanel, onSelect, unreadCount }: Props) {
+export function BottomNav({ activePanel, onSelect, unreadCount, userRole }: Props) {
+  const visibleTabs = userRole === 'admin' || userRole === 'lgu' || userRole === 'authority'
+    ? tabs.filter(t => t.key !== 'routes')
+    : tabs;
   return (
     <div
       className="flex items-end justify-center px-5 pb-4 pt-2"
@@ -24,7 +28,7 @@ export function BottomNav({ activePanel, onSelect, unreadCount }: Props) {
         className="flex items-center justify-around w-full max-w-sm rounded-full px-2 shadow-2xl"
         style={{ background: '#47B3E8', height: 60 }}
       >
-        {tabs.map(({ key, Icon, label }) => {
+        {visibleTabs.map(({ key, Icon, label }) => {
           const active = activePanel === key;
           return (
             <button

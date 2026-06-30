@@ -1,4 +1,4 @@
-import { BellOff, MoreHorizontal } from 'lucide-react';
+import { BellOff, X } from 'lucide-react';
 import type { AppNotification } from '../types';
 import { LandscapeThumb } from './LandscapeThumb';
 import { PanelHeader } from './PanelHeader';
@@ -8,20 +8,21 @@ interface Props {
   onMarkAllRead: () => void;
   onDeleteNotif: (id: string) => void;
   onBack: () => void;
+  onSelectNotif?: (pinId: string) => void;
 }
 
 function NotifItem({
   n,
   onDelete,
-  onMarkRead,
+  onClick,
 }: {
   n: AppNotification;
   onDelete: () => void;
-  onMarkRead: () => void;
+  onClick: () => void;
 }) {
   return (
     <div
-      onClick={n.isNew ? onMarkRead : undefined}
+      onClick={onClick}
       className="flex items-center gap-3 px-4 py-3 cursor-pointer active:opacity-80 transition-opacity"
     >
       {/* Yellow card */}
@@ -50,7 +51,7 @@ function NotifItem({
         }}
         className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg transition-colors cursor-pointer flex-shrink-0"
       >
-        <MoreHorizontal size={16} />
+        <X size={16} />
       </button>
     </div>
   );
@@ -61,6 +62,7 @@ export function NotificationsPanel({
   onMarkAllRead,
   onDeleteNotif,
   onBack,
+  onSelectNotif,
 }: Props) {
   const handleMarkRead = (id: string) => {
     fetch(`/api/notifications/${id}/read`, { method: 'PUT' }).catch((err) =>
@@ -97,7 +99,10 @@ export function NotificationsPanel({
               key={n.id}
               n={n}
               onDelete={() => onDeleteNotif(n.id)}
-              onMarkRead={() => handleMarkRead(n.id)}
+              onClick={() => {
+                if (n.isNew) handleMarkRead(n.id);
+                if (n.pinId && onSelectNotif) onSelectNotif(n.pinId);
+              }}
             />
           ))
         )}

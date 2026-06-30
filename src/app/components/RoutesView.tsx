@@ -22,8 +22,8 @@ function getDistance(a: { lat: number; lng: number }, b: { lat: number; lng: num
   const sin2 =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((a.lat * Math.PI) / 180) *
-      Math.cos((b.lat * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
+    Math.cos((b.lat * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.asin(Math.sqrt(sin2));
 }
 
@@ -35,8 +35,8 @@ function RouteIcon() {
       style={{ background: '#2563EB' }}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-        <polyline points="9 22 9 12 15 12 15 22"/>
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
       </svg>
     </div>
   );
@@ -77,16 +77,13 @@ function RouteCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="rounded-2xl px-4 py-3.5 mb-3"
-      style={{ background: '#FFF9C4' }}
+      className="rounded-2xl px-4 py-3.5 mb-3 border border-gray-100 shadow-sm"
+      style={{ background: '#FFFFFF' }}
     >
       <div className="flex items-start gap-3">
-        {/* Route icon */}
-        <RouteIcon />
-
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Name + mode */}
+          {/* Name + mode + distance + time */}
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <p className="text-[13px] font-extrabold text-gray-900">
               {route.name || `${route.from} → ${route.to}`}
@@ -94,32 +91,33 @@ function RouteCard({
             <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 rounded-full px-2 py-0.5">
               {modeLabel}
             </span>
-          </div>
-
-          {/* From → To */}
-          <div className="flex items-center gap-1 text-[12px] text-gray-600 mb-0.5">
-            <span className="truncate">{route.from}</span>
-            <span className="text-gray-400 flex-shrink-0">→</span>
-            <span className="truncate">{route.to}</span>
-          </div>
-
-          {/* Meta row */}
-          <div className="flex items-center gap-3 mt-1 flex-wrap">
             {route.distance && (
-              <span className="flex items-center gap-1 text-[10px] text-gray-400 font-medium">
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 font-medium ml-1">
                 <Ruler size={9} />{route.distance}
               </span>
             )}
             {route.duration && (
-              <span className="flex items-center gap-1 text-[10px] text-gray-400 font-medium">
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 font-medium">
                 <Clock size={9} />{route.duration}
               </span>
             )}
-            {route.lastEdited && (
-              <span className="text-[10px] text-gray-400 font-medium">
-                Last edited: {route.lastEdited}
-              </span>
-            )}
+          </div>
+
+          {/* From -> To with vertical connector */}
+          <div className="flex gap-2 mt-2 mb-2">
+            <div className="flex flex-col items-center justify-between py-1 flex-shrink-0">
+              <div className="w-2 h-2 rounded-full border border-green-500 bg-white flex items-center justify-center">
+                <div className="w-1 h-1 rounded-full bg-green-500" />
+              </div>
+              <div className="w-[1px] flex-1 bg-gray-200 my-0.5" />
+              <div className="w-2 h-2 rounded-full border border-blue-600 bg-white flex items-center justify-center">
+                <div className="w-1 h-1 rounded-full bg-blue-600" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0 flex flex-col gap-1 text-[12px] text-gray-600">
+              <span className="truncate leading-tight">{route.from}</span>
+              <span className="truncate leading-tight">{route.to}</span>
+            </div>
           </div>
 
           {/* Hazard badge */}
@@ -127,7 +125,7 @@ function RouteCard({
             <button
               onClick={() => setHazardsOpen((v) => !v)}
               className="mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold cursor-pointer transition-colors"
-              style={{ background: '#4ade80', color: '#14532d' }}
+              style={{ background: '#ef4444', color: 'white' }}
             >
               <AlertCircle size={9} />
               {nearbyCount} Report{nearbyCount > 1 ? 's' : ''} Nearby
@@ -141,39 +139,29 @@ function RouteCard({
           )}
         </div>
 
-        {/* Menu */}
-        <div className="relative flex-shrink-0">
+        {/* Menu Actions */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
-            onClick={() => setMenuOpen((v) => !v)}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg transition-colors cursor-pointer"
+            onClick={onViewOnMap}
+            title="View on Map"
+            className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
           >
-            <MoreHorizontal size={16} />
+            <Eye size={16} />
           </button>
-          <AnimatePresence>
-            {menuOpen && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.92, y: -4 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: -4 }}
-                transition={{ duration: 0.12 }}
-                className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
-                style={{ minWidth: 140 }}
-              >
-                <button onClick={() => { onViewOnMap(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer">
-                  <Eye size={13} /> View on Map
-                </button>
-                <button onClick={() => { onEdit(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer">
-                  <Edit2 size={13} /> Edit Route
-                </button>
-                <button onClick={() => { onDelete(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-semibold text-red-500 hover:bg-red-50 cursor-pointer">
-                  <Trash2 size={13} /> Delete
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <button
+            onClick={onEdit}
+            title="Edit Route"
+            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
+          >
+            <Edit2 size={16} />
+          </button>
+          <button
+            onClick={onDelete}
+            title="Delete Route"
+            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-white rounded-lg transition-colors cursor-pointer"
+          >
+            <Trash2 size={16} />
+          </button>
         </div>
       </div>
 
@@ -217,8 +205,8 @@ export function RoutesView({ routes, pins, onAddRoute, onDeleteRoute, onEditRout
           <div className="flex flex-col items-center justify-center h-full text-center py-16">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3" style={{ background: '#FFF9C4' }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                <polyline points="9 22 9 12 15 12 15 22"/>
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
               </svg>
             </div>
             <p className="text-[14px] font-bold text-gray-500">No saved routes yet</p>
